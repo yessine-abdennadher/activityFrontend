@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "ActivityTN",
+    "slug": "activitytn",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1E1B4B"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "tn.activity.app",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "ActivityTN utilise votre position pour vous recommander les activités et loisirs à proximité."
+      }
+    },
+    "android": {
+      "package": "tn.activity.app",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ]
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": [
+      "expo-asset",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "ActivityTN utilise votre position pour vous recommander les activités et loisirs à proximité."
+        }
+      ]
+    ]
+  }
+}

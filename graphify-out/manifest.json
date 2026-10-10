@@ -1,0 +1,314 @@
+{
+  ".claude/settings.json": {
+    "mtime": 1791653619.1232266,
+    "seen": 1791653723.7070305,
+    "ast_hash": "3ac995fbf93552a991ecab9b63f776aa",
+    "semantic_hash": "3ac995fbf93552a991ecab9b63f776aa"
+  },
+  ".expo/devices.json": {
+    "mtime": 1790453577.6261463,
+    "seen": 1791653723.7070305,
+    "ast_hash": "e5f6eb13c875f326cfd5915d3364614f",
+    "semantic_hash": "e5f6eb13c875f326cfd5915d3364614f"
+  },
+  ".expo/settings.json": {
+    "mtime": 1790518277.2393317,
+    "seen": 1791653723.7070305,
+    "ast_hash": "b8f2785fe23c3d22c6b574b25fd073c0",
+    "semantic_hash": "b8f2785fe23c3d22c6b574b25fd073c0"
+  },
+  "App.tsx": {
+    "mtime": 1791233984.423507,
+    "seen": 1791653723.7070305,
+    "ast_hash": "eac2885f6280dd69a87da961c16e9629",
+    "semantic_hash": "eac2885f6280dd69a87da961c16e9629"
+  },
+  "app.json": {
+    "mtime": 1790518265.8381455,
+    "seen": 1791653723.7070305,
+    "ast_hash": "95d47793d089c2d9ccf2004a40378b45",
+    "semantic_hash": "95d47793d089c2d9ccf2004a40378b45"
+  },
+  "package.json": {
+    "mtime": 1791230802.4363992,
+    "seen": 1791653723.7070305,
+    "ast_hash": "c4b961c308b8b88ba5b14a8bc096f810",
+    "semantic_hash": "c4b961c308b8b88ba5b14a8bc096f810"
+  },
+  "src/application/RootLayout.tsx": {
+    "mtime": 1790455055.466198,
+    "seen": 1791653723.7070305,
+    "ast_hash": "71849541e67ed8a4d7d6b9b67abb6d4c",
+    "semantic_hash": "71849541e67ed8a4d7d6b9b67abb6d4c"
+  },
+  "src/components/ActivityCard.tsx": {
+    "mtime": 1791233808.347042,
+    "seen": 1791653723.7070305,
+    "ast_hash": "3a23385aaa0f19fa00466dd49a51da33",
+    "semantic_hash": "3a23385aaa0f19fa00466dd49a51da33"
+  },
+  "src/components/FloatingTabBar.tsx": {
+    "mtime": 1790539370.8682263,
+    "seen": 1791653723.7070305,
+    "ast_hash": "a9a185ef14b920ddb438abebb9575a32",
+    "semantic_hash": "a9a185ef14b920ddb438abebb9575a32"
+  },
+  "src/components/GoogleMapView.tsx": {
+    "mtime": 1791233177.6358025,
+    "seen": 1791653723.7070305,
+    "ast_hash": "4efadc16e910c20929a5210d10f4941d",
+    "semantic_hash": "4efadc16e910c20929a5210d10f4941d"
+  },
+  "src/components/home/ActivityCard.tsx": {
+    "mtime": 1790538922.553282,
+    "seen": 1791653723.7070305,
+    "ast_hash": "dd1a1327b508040414eb9edbc927105c",
+    "semantic_hash": "dd1a1327b508040414eb9edbc927105c"
+  },
+  "src/components/ui/AnimatedGlowButton.tsx": {
+    "mtime": 1790539611.028768,
+    "seen": 1791653723.7070305,
+    "ast_hash": "9f0c1109c219bbf65e0c8e7a14b4f428",
+    "semantic_hash": "9f0c1109c219bbf65e0c8e7a14b4f428"
+  },
+  "src/components/ui/BottomNav.tsx": {
+    "mtime": 1790455152.644261,
+    "seen": 1791653723.7070305,
+    "ast_hash": "67591b6ff4737bbb340fcde5ef42616b",
+    "semantic_hash": "67591b6ff4737bbb340fcde5ef42616b"
+  },
+  "src/components/ui/LikeButton.tsx": {
+    "mtime": 1790533132.9224954,
+    "seen": 1791653723.7070305,
+    "ast_hash": "4ef6d8c7f9ec4ca229e163685ae7f2fe",
+    "semantic_hash": "4ef6d8c7f9ec4ca229e163685ae7f2fe"
+  },
+  "src/components/ui/NewtonsCradleLoader.tsx": {
+    "mtime": 1790532748.2715206,
+    "seen": 1791653723.7070305,
+    "ast_hash": "02c300b97e34446bb24e6bbab21f176d",
+    "semantic_hash": "02c300b97e34446bb24e6bbab21f176d"
+  },
+  "src/constants/categories.ts": {
+    "mtime": 1791236466.3499405,
+    "seen": 1791653723.7070305,
+    "ast_hash": "1239fd5257d4c7484ab4a2d7d454c197",
+    "semantic_hash": "1239fd5257d4c7484ab4a2d7d454c197"
+  },
+  "src/constants/theme.ts": {
+    "mtime": 1790455549.0663624,
+    "seen": 1791653723.7070305,
+    "ast_hash": "fd0af96e4122f3e2422058e105263235",
+    "semantic_hash": "fd0af96e4122f3e2422058e105263235"
+  },
+  "src/constants/translations.ts": {
+    "mtime": 1790457346.6587005,
+    "seen": 1791653723.7070305,
+    "ast_hash": "2c5f97af7d63b0e46c95e2132b878675",
+    "semantic_hash": "2c5f97af7d63b0e46c95e2132b878675"
+  },
+  "src/context/AppContext.tsx": {
+    "mtime": 1790454885.5656967,
+    "seen": 1791653723.7070305,
+    "ast_hash": "e0fd964dabee971647ecea77d0ca1377",
+    "semantic_hash": "e0fd964dabee971647ecea77d0ca1377"
+  },
+  "src/context/AppPreferencesContext.tsx": {
+    "mtime": 1790458680.7345996,
+    "seen": 1791653723.7070305,
+    "ast_hash": "b4f9c9469e8639b0af98d543f82724b3",
+    "semantic_hash": "b4f9c9469e8639b0af98d543f82724b3"
+  },
+  "src/context/LocationContext.tsx": {
+    "mtime": 1791236511.0805376,
+    "seen": 1791653723.7070305,
+    "ast_hash": "da4435e4e2235a2603ec56b7e9b0a3de",
+    "semantic_hash": "da4435e4e2235a2603ec56b7e9b0a3de"
+  },
+  "src/data/mockData.js": {
+    "mtime": 1791134477.898813,
+    "seen": 1791653723.7070305,
+    "ast_hash": "11c973669662e071491bb9246679bfa7",
+    "semantic_hash": "11c973669662e071491bb9246679bfa7"
+  },
+  "src/hooks/useActivities.ts": {
+    "mtime": 1791132826.9135604,
+    "seen": 1791653723.7070305,
+    "ast_hash": "6da52fdd7b17bed576643323f33c1ec5",
+    "semantic_hash": "6da52fdd7b17bed576643323f33c1ec5"
+  },
+  "src/hooks/useTranslation.ts": {
+    "mtime": 1790455486.7707467,
+    "seen": 1791653723.7070305,
+    "ast_hash": "88b016bda22674f76de8ff4fa2314e57",
+    "semantic_hash": "88b016bda22674f76de8ff4fa2314e57"
+  },
+  "src/locales/ar.json": {
+    "mtime": 1790458430.6097412,
+    "seen": 1791653723.7070305,
+    "ast_hash": "9cc1609d8971c7bf39db60ff9ba930ba",
+    "semantic_hash": "9cc1609d8971c7bf39db60ff9ba930ba"
+  },
+  "src/locales/en.json": {
+    "mtime": 1790458431.4963725,
+    "seen": 1791653723.7070305,
+    "ast_hash": "6d94185a057609ed6854ce2cff96c6be",
+    "semantic_hash": "6d94185a057609ed6854ce2cff96c6be"
+  },
+  "src/locales/fr.json": {
+    "mtime": 1790458431.098772,
+    "seen": 1791653723.7070305,
+    "ast_hash": "7b7d16e9362dd03cfb7e92376c72148c",
+    "semantic_hash": "7b7d16e9362dd03cfb7e92376c72148c"
+  },
+  "src/main.js": {
+    "mtime": 1791134607.8568962,
+    "seen": 1791653723.7070305,
+    "ast_hash": "085e310eb7e531bfe0a7b7e1d0d00a68",
+    "semantic_hash": "085e310eb7e531bfe0a7b7e1d0d00a68"
+  },
+  "src/screens/ActivityDetailsScreen.tsx": {
+    "mtime": 1791233912.9353533,
+    "seen": 1791653723.7070305,
+    "ast_hash": "3a60ceac0f4384485d230217a6d5ce0b",
+    "semantic_hash": "3a60ceac0f4384485d230217a6d5ce0b"
+  },
+  "src/screens/AuthScreen.tsx": {
+    "mtime": 1791149237.818014,
+    "seen": 1791653723.7070305,
+    "ast_hash": "7462b1bb460446c43d90e6277df021df",
+    "semantic_hash": "7462b1bb460446c43d90e6277df021df"
+  },
+  "src/screens/ChatbotScreen.tsx": {
+    "mtime": 1790455515.913071,
+    "seen": 1791653723.7070305,
+    "ast_hash": "4f16830e3472ef6fb2b84d125a5d965a",
+    "semantic_hash": "4f16830e3472ef6fb2b84d125a5d965a"
+  },
+  "src/screens/FavoritesScreen.tsx": {
+    "mtime": 1790455516.345256,
+    "seen": 1791653723.7070305,
+    "ast_hash": "a6d6e48dde895b79de4f4f1275e298d1",
+    "semantic_hash": "a6d6e48dde895b79de4f4f1275e298d1"
+  },
+  "src/screens/HomeScreen.tsx": {
+    "mtime": 1790455514.8851628,
+    "seen": 1791653723.7070305,
+    "ast_hash": "92fba069fb7578476fa459e44d78c17e",
+    "semantic_hash": "92fba069fb7578476fa459e44d78c17e"
+  },
+  "src/screens/HomeScreenTab.tsx": {
+    "mtime": 1791233862.4421892,
+    "seen": 1791653723.7070305,
+    "ast_hash": "000d842f9c9c7349876ff953191ddf30",
+    "semantic_hash": "000d842f9c9c7349876ff953191ddf30"
+  },
+  "src/screens/MapScreen.tsx": {
+    "mtime": 1790540255.8868558,
+    "seen": 1791653723.7070305,
+    "ast_hash": "9761a77b4ded194ccc3300b36fb4847c",
+    "semantic_hash": "9761a77b4ded194ccc3300b36fb4847c"
+  },
+  "src/screens/MchinaMvpScreens.tsx": {
+    "mtime": 1790714539.8407083,
+    "seen": 1791653723.7070305,
+    "ast_hash": "9d1d284317386fe66deaa7611ae96d5f",
+    "semantic_hash": "9d1d284317386fe66deaa7611ae96d5f"
+  },
+  "src/screens/OnboardingScreen.tsx": {
+    "mtime": 1790540201.8366776,
+    "seen": 1791653723.7070305,
+    "ast_hash": "471f787aee730ad0a96dbb14abd64246",
+    "semantic_hash": "471f787aee730ad0a96dbb14abd64246"
+  },
+  "src/screens/ProfileScreen.tsx": {
+    "mtime": 1791144253.331938,
+    "seen": 1791653723.7070305,
+    "ast_hash": "095c947ccfb5de696fa68860e7664343",
+    "semantic_hash": "095c947ccfb5de696fa68860e7664343"
+  },
+  "src/screens/RecommendationFlowScreen.tsx": {
+    "mtime": 1790716250.0693924,
+    "seen": 1791653723.7070305,
+    "ast_hash": "b65aa0e785c2a846a0d01f4e064e787a",
+    "semantic_hash": "b65aa0e785c2a846a0d01f4e064e787a"
+  },
+  "src/screens/RecommendationResultsScreen.tsx": {
+    "mtime": 1791234008.6483014,
+    "seen": 1791653723.7070305,
+    "ast_hash": "a2413e45e7f4cf1740841cc1f9f96c0e",
+    "semantic_hash": "a2413e45e7f4cf1740841cc1f9f96c0e"
+  },
+  "src/screens/SplashScreen.tsx": {
+    "mtime": 1790540189.1985083,
+    "seen": 1791653723.7070305,
+    "ast_hash": "cb589d358dc9e8c9af1666d580089657",
+    "semantic_hash": "cb589d358dc9e8c9af1666d580089657"
+  },
+  "src/screens/StatusStateScreen.tsx": {
+    "mtime": 1790540266.5007472,
+    "seen": 1791653723.7070305,
+    "ast_hash": "07519d18fcc978483f08f5efdf206f90",
+    "semantic_hash": "07519d18fcc978483f08f5efdf206f90"
+  },
+  "src/services/activityService.ts": {
+    "mtime": 1791236473.8160415,
+    "seen": 1791653723.7070305,
+    "ast_hash": "36d301c7b035d5a11ff69c090c5e2121",
+    "semantic_hash": "36d301c7b035d5a11ff69c090c5e2121"
+  },
+  "src/services/apiConfig.ts": {
+    "mtime": 1791236754.5343618,
+    "seen": 1791653723.7070305,
+    "ast_hash": "1e481e49d1fb352719e16eedbbdf722d",
+    "semantic_hash": "1e481e49d1fb352719e16eedbbdf722d"
+  },
+  "src/services/authService.ts": {
+    "mtime": 1791236805.8072493,
+    "seen": 1791653723.7070305,
+    "ast_hash": "fa34a39c024e220ce1febf7eea265a2f",
+    "semantic_hash": "fa34a39c024e220ce1febf7eea265a2f"
+  },
+  "src/services/googleAccountsStore.ts": {
+    "mtime": 1791149163.6873975,
+    "seen": 1791653723.7070305,
+    "ast_hash": "914ce791cf6b9532138493e22631b3af",
+    "semantic_hash": "914ce791cf6b9532138493e22631b3af"
+  },
+  "src/services/googleMapsService.ts": {
+    "mtime": 1791231930.6079166,
+    "seen": 1791653723.7070305,
+    "ast_hash": "3722b9b875e11d26fdf61ba982eb50cc",
+    "semantic_hash": "3722b9b875e11d26fdf61ba982eb50cc"
+  },
+  "src/services/locationService.ts": {
+    "mtime": 1791236765.1751325,
+    "seen": 1791653723.7070305,
+    "ast_hash": "85825885e09cb689ad965fa1763da104",
+    "semantic_hash": "85825885e09cb689ad965fa1763da104"
+  },
+  "src/stores/useFavoritesStore.ts": {
+    "mtime": 1790453913.4399393,
+    "seen": 1791653723.7070305,
+    "ast_hash": "5d5bf0315c1e4158f9059a48ea31530b",
+    "semantic_hash": "5d5bf0315c1e4158f9059a48ea31530b"
+  },
+  "src/theme/theme.ts": {
+    "mtime": 1790539352.6545653,
+    "seen": 1791653723.7070305,
+    "ast_hash": "0a767c7227f60c135b4f8f6bc612182b",
+    "semantic_hash": "0a767c7227f60c135b4f8f6bc612182b"
+  },
+  "src/types/index.ts": {
+    "mtime": 1791233048.7332847,
+    "seen": 1791653723.7070305,
+    "ast_hash": "a27d331bf1531290772e817a4e0d6305",
+    "semantic_hash": "a27d331bf1531290772e817a4e0d6305"
+  },
+  "tsconfig.json": {
+    "mtime": 1790453578.6040528,
+    "seen": 1791653723.7070305,
+    "ast_hash": "fc5aeefabecedcb47aa7fd1e236c67ab",
+    "semantic_hash": "fc5aeefabecedcb47aa7fd1e236c67ab"
+  }
+}
