@@ -1,0 +1,44 @@
+# Expo & React Native Dependencies
+node_modules/
+.expo/
+.expo-shared/
+dist/
+web-build/
+
+# Native builds
+android/
+ios/
+*.apk
+*.aab
+*.ipa
+
+# Environment secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Keystores & Certs
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# OS & Editors
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Local tools & Temp
+powershell.cmd
+powershell.bat
+graphify-out/
+.claude/
