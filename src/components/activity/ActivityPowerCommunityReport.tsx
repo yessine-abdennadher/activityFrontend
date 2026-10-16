@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { PowerCommunityReports } from '../../types';
+import { powerReportService } from '../../services/powerReportService';
 
 interface ActivityPowerCommunityReportProps {
   powerReports?: PowerCommunityReports;
@@ -27,78 +28,23 @@ export const ActivityPowerCommunityReport: React.FC<ActivityPowerCommunityReport
   const totalVotes = yesVotes + noVotes;
   const userVote = powerReports?.userVote;
 
-  // Calcul du statut en temps réel
-  const statusInfo = useMemo(() => {
-    if (totalVotes > 0) {
-      if (yesVotes >= noVotes) {
-        return {
-          type: 'on',
-          title: language === 'ar' ? 'إنارة مؤكدة من الزوار 💡' : 'Lumière confirmée allumée 💡',
-          subtitle:
-            language === 'ar'
-              ? `${yesVotes} شخص أكدوا وجود الكهرباء (${Math.round((yesVotes / totalVotes) * 100)}%)`
-              : `${yesVotes} personnes confirment la lumière (${Math.round((yesVotes / totalVotes) * 100)}%)`,
-          bgColor: isDark ? '#451A03' : '#FEF3C7',
-          borderColor: '#F59E0B',
-          textColor: '#B45309',
-        };
-      } else {
-        return {
-          type: 'off',
-          title: language === 'ar' ? 'انقطاع تيار مبلّغ عنه 🔌' : 'Coupure de courant signalée 🔌',
-          subtitle:
-            language === 'ar'
-              ? `${noVotes} شخص أبلغوا عن انقطاع (${Math.round((noVotes / totalVotes) * 100)}%)`
-              : `${noVotes} personnes signalent une coupure (${Math.round((noVotes / totalVotes) * 100)}%)`,
-          bgColor: isDark ? '#450A0A' : '#FEE2E2',
-          borderColor: '#EF4444',
-          textColor: '#DC2626',
-        };
-      }
-    }
+  // Calcul du statut délégué au powerReportService
+  const statusInfo = useMemo(
+    () =>
+      powerReportService.calculateStatusInfo(
+        powerReports,
+        partnerPowerBackupMode,
+        isDark,
+        language
+      ),
+    [powerReports, partnerPowerBackupMode, isDark, language]
+  );
 
-    // Aucun vote pour le moment : se base sur la déclaration partenaire
-    const partnerOn = partnerPowerBackupMode !== false;
-    return {
-      type: partnerOn ? 'partner_on' : 'partner_off',
-      title: partnerOn
-        ? language === 'ar'
-          ? 'المحل مجهز بمولد كهربائي 💡'
-          : 'Lumière garantie par l’établissement 💡'
-        : language === 'ar'
-        ? 'إنارة غير متوفرة حالياً'
-        : 'Mode lumière non garanti',
-      subtitle:
-        language === 'ar'
-          ? 'في انتظار تأكيد أول زائر على عين المكان'
-          : 'En attente du premier signalement des visiteurs sur place',
-      bgColor: isDark ? (partnerOn ? '#451A03' : '#1E293B') : partnerOn ? '#FEF3C7' : '#F1F5F9',
-      borderColor: partnerOn ? '#F59E0B' : '#94A3B8',
-      textColor: partnerOn ? '#B45309' : '#64748B',
-    };
-  }, [totalVotes, yesVotes, noVotes, partnerPowerBackupMode, isDark, language]);
-
-  // Calcul du temps écoulé depuis la dernière modification
-  const lastUpdatedText = useMemo(() => {
-    if (!powerReports?.lastReportAt) {
-      return language === 'ar' ? 'لا يوجد تحديث اليوم' : 'Aucun signalement aujourd’hui';
-    }
-    const diffMin = Math.max(
-      0,
-      Math.floor((Date.now() - new Date(powerReports.lastReportAt).getTime()) / 60000)
-    );
-    if (diffMin < 1) {
-      return language === 'ar' ? 'الآن مباشرة' : 'À l’instant';
-    }
-    if (diffMin < 60) {
-      return language === 'ar' ? `منذ ${diffMin} دقيقة` : `Il y a ${diffMin} min`;
-    }
-    const diffHours = Math.floor(diffMin / 60);
-    if (diffHours < 24) {
-      return language === 'ar' ? `منذ ${diffHours} ساعة` : `Il y a ${diffHours} h`;
-    }
-    return new Date(powerReports.lastReportAt).toLocaleDateString();
-  }, [powerReports?.lastReportAt, language]);
+  // Temps écoulé délégué au powerReportService
+  const lastUpdatedText = useMemo(
+    () => powerReportService.formatLastReportTime(powerReports?.lastReportAt, language),
+    [powerReports?.lastReportAt, language]
+  );
 
   return (
     <View

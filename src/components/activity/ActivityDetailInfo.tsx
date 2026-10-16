@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Activity } from '../../types';
 import { ThemeColors } from '../../theme/theme';
+import { activityPresenterService } from '../../services/activityPresenterService';
 
 interface ActivityDetailInfoProps {
   activity: Activity;
@@ -27,13 +28,12 @@ export const ActivityDetailInfo: React.FC<ActivityDetailInfoProps> = ({
   isDark,
   language,
 }) => {
-  const freeLabel = language === 'ar' ? 'مجاني' : language === 'fr' ? 'Gratuit' : 'Free';
-  const priceDisplay = activity.price === 0 ? freeLabel : `${activity.price} DT`;
-
-  // Gestion rigoureuse de la note : si 0 avis -> afficher 0 (pas 4.5 !)
-  const hasReviews = reviewsCount > 0;
-  const displayRating = hasReviews ? rating : 0;
-  const ratingText = hasReviews ? `${displayRating} / 5` : (language === 'ar' ? 'لا يوجد تقييم' : '0 (Non noté)');
+  const priceDisplay = activityPresenterService.formatPrice(activity.price, language);
+  const { hasReviews, ratingText } = activityPresenterService.formatRating(
+    rating,
+    reviewsCount,
+    language
+  );
 
   return (
     <View style={styles.container}>
@@ -117,7 +117,7 @@ export const ActivityDetailInfo: React.FC<ActivityDetailInfoProps> = ({
         <View style={styles.reasonRow}>
           <Ionicons name="people-outline" size={18} color={theme.primary} />
           <Text style={[styles.reasonText, { color: theme.textMuted }]}>
-            {language === 'ar' ? 'مناسب لـ' : 'Idéal pour'} {activity.peopleMin ?? 1}–{activity.peopleMax ?? 8} {language === 'ar' ? 'أشخاص' : 'personnes'}
+            {activityPresenterService.formatPeopleRange(activity.peopleMin, activity.peopleMax, language)}
           </Text>
         </View>
         <View style={styles.reasonRow}>

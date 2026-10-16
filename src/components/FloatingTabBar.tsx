@@ -89,6 +89,7 @@ const TabButton: React.FC<{
               width: pillWidth,
               backgroundColor: theme.primary,
               opacity: activeAnim,
+              shadowColor: theme.primary,
             },
           ]}
         />
@@ -144,6 +145,7 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
           {
             backgroundColor: theme.tabBarBg,
             borderColor: theme.cardBorder,
+            shadowColor: theme.shadowColor,
           },
         ]}
       >
@@ -178,8 +180,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 8,
     borderWidth: 1.5,
-    shadowColor: '#0284C7',
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 20,
     shadowOffset: { width: 0, height: 10 },
     elevation: 20,
@@ -199,7 +200,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: 44,
     borderRadius: 22,
-    shadowColor: '#0284C7',
     shadowOpacity: 0.4,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },

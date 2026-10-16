@@ -85,6 +85,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   const [promoLabel, setPromoLabel] = useState('Offre Spéciale Menu');
   const [promoType, setPromoType] = useState<'all' | 'item'>('all');
   const [promoTargetItem, setPromoTargetItem] = useState('');
+  const [promoValidUntil, setPromoValidUntil] = useState('Jusqu\'au 31 Octobre');
 
   // Modal Événement Pro & Premium
   const [eventModalVisible, setEventModalVisible] = useState(false);
@@ -196,6 +197,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
     setPromoLabel(item.promotion?.promoLabel || 'Offre Spéciale Menu');
     setPromoType((item.promotion as any)?.promoType || 'all');
     setPromoTargetItem((item.promotion as any)?.targetItem || '');
+    setPromoValidUntil(item.promotion?.validUntil || 'Jusqu\'au 31 Octobre');
     setPromoModalVisible(true);
   };
 
@@ -209,6 +211,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         discountPercent: discount,
         targetItem: promoType === 'item' ? promoTargetItem.trim() : undefined,
         promoLabel: promoLabel.trim() || (promoType === 'item' && promoTargetItem ? `Promo sur ${promoTargetItem} (-${discount}%)` : `-${discount}% sur toute l'addition`),
+        validUntil: promoValidUntil.trim() || undefined,
       });
       setActivities((prev) =>
         prev.map((a) => (a._id === promoTarget._id ? { ...a, promotion: updated.promotion } : a))
@@ -883,12 +886,14 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         label={promoLabel}
         promoType={promoType}
         targetItem={promoTargetItem}
+        validUntil={promoValidUntil}
         theme={theme}
         isDark={isDark}
         onDiscountChange={setPromoDiscount}
         onLabelChange={setPromoLabel}
         onPromoTypeChange={setPromoType}
         onTargetItemChange={setPromoTargetItem}
+        onValidUntilChange={setPromoValidUntil}
         onClose={() => setPromoModalVisible(false)}
         onSave={handleSavePromo}
       />

@@ -2,22 +2,19 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Alert,
   ScrollView,
-  Share,
   StyleSheet,
   View,
-  Linking,
-  Platform,
 } from 'react-native';
 import type { Activity, AuthUser } from '../types';
 import { useAppPreferences } from '../context/AppPreferencesContext';
 import { useTranslation } from '../hooks/useTranslation';
-import { ActivityScheduleBadge } from '../components/activity/ActivityScheduleBadge';
-import { ActivityProEventCard } from '../components/activity/ActivityProEventCard';
-import { ActivityPowerCommunityReport } from '../components/activity/ActivityPowerCommunityReport';
 import { ActivityDetailHero } from '../components/activity/ActivityDetailHero';
-import { ActivityDetailInfo } from '../components/activity/ActivityDetailInfo';
-import { ActivityReviewsSection } from '../components/activity/ActivityReviewsSection';
 import { ActivityBookingHub } from '../components/activity/ActivityBookingHub';
+import { ActivityDetailInfo } from '../components/activity/ActivityDetailInfo';
+import { ActivityPowerCommunityReport } from '../components/activity/ActivityPowerCommunityReport';
+import { ActivityProEventCard } from '../components/activity/ActivityProEventCard';
+import { ActivityReviewsSection } from '../components/activity/ActivityReviewsSection';
+import { ActivityScheduleBadge } from '../components/activity/ActivityScheduleBadge';
 import {
   getActivityReviews,
   addActivityReview,
@@ -25,11 +22,12 @@ import {
   deleteActivityReview,
   reactToActivityReview,
   getActivityLocalizedText,
-  reportActivityPowerStatus,
   type ActivityReview,
   type FacebookReactionType,
 } from '../services/activityService';
-import { getLocalizedCategories } from '../constants/categories';
+import { activityActionService } from '../services/activityActionService';
+import { powerReportService } from '../services/powerReportService';
+import { activityPresenterService } from '../services/activityPresenterService';
 
 interface Props {
   activity: Activity;
@@ -55,16 +53,7 @@ export default function ActivityDetailsScreen({
   const localizedCity = getActivityLocalizedText(activity, 'city', language as any);
 
   const localizedCategoryName = useMemo(() => {
-    if (!activity.category) return '';
-    const list = getLocalizedCategories(language);
-    const match = list.find(
-      (c) =>
-        c.id.toLowerCase() === activity.category.toLowerCase() ||
-        c.nameAr === activity.category ||
-        c.nameFr === activity.category ||
-        c.nameEn === activity.category
-    );
-    return match ? match.name : activity.category;
+    return activityPresenterService.getLocalizedCategoryName(activity.category, language);
   }, [activity.category, language]);
 
   // ── Notes & Avis dynamiques (MongoDB) ────────────────────────────────────
@@ -182,7 +171,7 @@ export default function ActivityDetailsScreen({
 
     setIsVotingPower(true);
     try {
-      const res = await reportActivityPowerStatus(activity.id, hasPower);
+      const res = await powerReportService.submitPowerReport(activity.id, hasPower);
       setPowerReports({
         yesVotes: res.yesVotes,
         noVotes: res.noVotes,
@@ -297,83 +286,41 @@ export default function ActivityDetailsScreen({
     }
   };
 
-  // Partager l'activité
+  // Partager l'activité via activityActionService
   const handleShare = async () => {
-    try {
-      const scoreText = reviewsCount > 0 ? `⭐ ${currentRating}/5 (${reviewsCount})` : t('notRated');
-      const priceText = activity.price === 0 ? t('freePrice') : `${activity.price} DT`;
-      await Share.share({
-        title: activity.name,
-        message: `🌟 ${activity.name} (${activity.city})\n💰 ${priceText}\n⭐ ${scoreText}\n📲 Win 🇹🇳`,
-      });
-    } catch (err) {
-      console.warn('[Share] Error sharing activity:', err);
-    }
-  };
-
-  // Appel téléphonique direct
-  const handleCall = () => {
-    const rawPhone = activity.phone || '+216 74 200 100';
-    const cleanPhone = rawPhone.replace(/[^\d+]/g, '');
-    const url = `tel:${cleanPhone}`;
-
-    Linking.canOpenURL(url)
-      .then((supported) => {
-        if (!supported) {
-          Alert.alert(
-            t('information'),
-            `${t('phoneContact')}: ${rawPhone}`
-          );
-        } else {
-          return Linking.openURL(url);
-        }
-      })
-      .catch((err) => {
-        console.warn('[ActivityDetails] Erreur appel:', err);
-        Alert.alert(t('phoneContact'), `${rawPhone}`);
-      });
-  };
-
-  // WhatsApp direct
-  const handleWhatsApp = () => {
-    const rawWa = activity.whatsapp || activity.phone || '+216 98 200 100';
-    const cleanWa = rawWa.replace(/[^\d]/g, '');
-    const defaultMsg = `Bonjour / مرحبا, je souhaite réserver pour "${activity.name}" via ActivityTN 🇹🇳.`;
-    const url = `https://wa.me/${cleanWa}?text=${encodeURIComponent(defaultMsg)}`;
-
-    Linking.openURL(url).catch((err) => {
-      console.warn('[ActivityDetails] Erreur WhatsApp:', err);
-      Alert.alert(
-        'WhatsApp',
-        `${t('whatsAppContact')}: ${rawWa}`
-      );
+    await activityActionService.shareActivity({
+      name: localizedName,
+      city: localizedCity,
+      price: activity.price,
+      rating: currentRating,
+      reviewsCount,
+      notRatedText: t('notRated'),
+      freePriceText: t('freePrice'),
     });
   };
 
-  // Itinéraire GPS direct
+  // Appel téléphonique direct via activityActionService
+  const handleCall = () => {
+    activityActionService.callVenue(activity.phone, t('phoneContact'));
+  };
+
+  // WhatsApp direct via activityActionService
+  const handleWhatsApp = () => {
+    activityActionService.openWhatsAppBooking({
+      phone: activity.phone,
+      whatsapp: activity.whatsapp,
+      activityName: localizedName,
+      fallbackLabel: t('whatsAppContact'),
+    });
+  };
+
+  // Itinéraire GPS direct via activityActionService
   const handleOpenMapDirection = () => {
-    const lat = activity.latitude || 34.7406;
-    const lng = activity.longitude || 10.7603;
-    const label = encodeURIComponent(activity.name || 'ActivityTN');
-
-    const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
-    const nativeMapUrl =
-      Platform.select({
-        ios: `maps:0,0?q=${label}@${lat},${lng}`,
-        android: `geo:0,0?q=${lat},${lng}(${label})`,
-        default: googleMapsUrl,
-      }) || googleMapsUrl;
-
-    Linking.canOpenURL(nativeMapUrl)
-      .then((supported) => {
-        if (supported) {
-          return Linking.openURL(nativeMapUrl);
-        }
-        return Linking.openURL(googleMapsUrl);
-      })
-      .catch(() => {
-        Linking.openURL(googleMapsUrl);
-      });
+    activityActionService.openMapNavigation({
+      latitude: activity.latitude,
+      longitude: activity.longitude,
+      label: localizedName || activity.name,
+    });
   };
 
   return (

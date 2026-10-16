@@ -37,7 +37,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
   onViewEstablishment,
   theme: customTheme,
 }) => {
-  const { theme: ctxTheme, language, isDark } = usePreferences();
+  const { theme: ctxTheme, language, isDark, t } = usePreferences();
   const theme = customTheme || ctxTheme;
 
   if (!activity || !event) return null;
@@ -185,7 +185,7 @@ export const EventDetailModal: React.FC<EventDetailModalProps> = ({
             <Ionicons name="restaurant" size={14} color="#7C3AED" />
           </View>
           <Text style={[styles.hostSectionTitle, { color: theme.textMain }]}>
-            {language === 'ar' ? 'مكان السهرة والمطعم المستضيف' : 'Lieu & Établissement Partenaire'}
+            {t('venueLocationTitle')}
           </Text>
         </View>
 

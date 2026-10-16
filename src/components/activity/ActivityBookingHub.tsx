@@ -4,21 +4,30 @@ import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../theme/theme';
 import { useTranslation } from '../../hooks/useTranslation';
 
+import { activityActionService } from '../../services/activityActionService';
+
 interface ActivityBookingHubProps {
   phone?: string;
   whatsapp?: string;
+  activityName?: string;
+  latitude?: number;
+  longitude?: number;
   isFavorite: boolean;
   isDark: boolean;
   theme: ThemeColors;
-  onCall: () => void;
-  onWhatsApp: () => void;
-  onOpenMapDirection: () => void;
-  onShare: () => void;
+  onCall?: () => void;
+  onWhatsApp?: () => void;
+  onOpenMapDirection?: () => void;
+  onShare?: () => void;
   onToggleFavorite: () => void;
 }
 
 export const ActivityBookingHub: React.FC<ActivityBookingHubProps> = ({
   phone,
+  whatsapp,
+  activityName,
+  latitude,
+  longitude,
   isFavorite,
   isDark,
   theme,
@@ -30,6 +39,51 @@ export const ActivityBookingHub: React.FC<ActivityBookingHubProps> = ({
 }) => {
   const { t } = useTranslation();
   const displayPhone = phone || '+216 74 200 100';
+
+  const handleCall = () => {
+    if (onCall) {
+      onCall();
+    } else {
+      activityActionService.callVenue(phone, t('phoneContact'));
+    }
+  };
+
+  const handleWhatsApp = () => {
+    if (onWhatsApp) {
+      onWhatsApp();
+    } else {
+      activityActionService.openWhatsAppBooking({
+        phone,
+        whatsapp,
+        activityName,
+        fallbackLabel: t('whatsAppContact'),
+      });
+    }
+  };
+
+  const handleMap = () => {
+    if (onOpenMapDirection) {
+      onOpenMapDirection();
+    } else {
+      activityActionService.openMapNavigation({
+        latitude,
+        longitude,
+        label: activityName,
+      });
+    }
+  };
+
+  const handleShare = () => {
+    if (onShare) {
+      onShare();
+    } else {
+      activityActionService.shareActivity({
+        name: activityName || 'ActivityTN',
+        notRatedText: t('notRated'),
+        freePriceText: t('freePrice'),
+      });
+    }
+  };
 
   return (
     <View
@@ -51,7 +105,7 @@ export const ActivityBookingHub: React.FC<ActivityBookingHubProps> = ({
         <TouchableOpacity
           accessibilityLabel={t('callVenue')}
           accessibilityRole="button"
-          onPress={onCall}
+          onPress={handleCall}
           activeOpacity={0.85}
           style={[styles.contactBtn, { backgroundColor: '#0284C7' }]}
         >
@@ -70,7 +124,7 @@ export const ActivityBookingHub: React.FC<ActivityBookingHubProps> = ({
         <TouchableOpacity
           accessibilityLabel={t('whatsappBooking')}
           accessibilityRole="button"
-          onPress={onWhatsApp}
+          onPress={handleWhatsApp}
           activeOpacity={0.85}
           style={[styles.contactBtn, { backgroundColor: '#10B981' }]}
         >
@@ -90,7 +144,7 @@ export const ActivityBookingHub: React.FC<ActivityBookingHubProps> = ({
       <TouchableOpacity
         accessibilityLabel={t('openGpsRoute')}
         accessibilityRole="button"
-        onPress={onOpenMapDirection}
+        onPress={handleMap}
         activeOpacity={0.88}
         style={[styles.gpsRouteButton, { backgroundColor: theme.primary }]}
       >
@@ -107,7 +161,7 @@ export const ActivityBookingHub: React.FC<ActivityBookingHubProps> = ({
       <View style={styles.actionRow}>
         <TouchableOpacity
           accessibilityRole="button"
-          onPress={onShare}
+          onPress={handleShare}
           style={[
             styles.secondaryAction,
             {

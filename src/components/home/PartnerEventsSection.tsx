@@ -23,7 +23,7 @@ export const PartnerEventsSection: React.FC<PartnerEventsSectionProps> = ({
   onSelectActivity,
   theme: customTheme,
 }) => {
-  const { theme: ctxTheme, language } = usePreferences();
+  const { theme: ctxTheme, t } = usePreferences();
   const theme = customTheme || ctxTheme;
 
   // État de sélection d'un événement pour afficher l'interface de détail
@@ -88,16 +88,12 @@ export const PartnerEventsSection: React.FC<PartnerEventsSectionProps> = ({
           </View>
           <View>
             <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
-              {language === 'ar' ? 'سهرات وأحداث بريميوم ⭐' : language === 'fr' ? 'Soirées & Événements' : 'Events & Live Nights'}
+              {t('eventsSectionTitle')}
             </Text>
             <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>
-              {language === 'ar' ? 'شركاء بريميوم المعتمدين' : 'Partenaires Premium vérifiés ⭐'}
+              {t('eventsSectionSubtitle')}
             </Text>
           </View>
-        </View>
-
-        <View style={styles.premiumTag}>
-          <Text style={styles.premiumTagText}>PREMIUM</Text>
         </View>
       </View>
 
@@ -171,20 +167,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 1,
-  },
-  premiumTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    backgroundColor: 'rgba(168, 85, 247, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(168, 85, 247, 0.4)',
-  },
-  premiumTagText: {
-    color: '#A855F7',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.8,
   },
   scrollList: {
     paddingHorizontal: 20,

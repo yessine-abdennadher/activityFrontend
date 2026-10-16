@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../../context/AppPreferencesContext';
 import { getActivityLocalizedText } from '../../services/activityService';
@@ -20,6 +21,7 @@ export interface CompactActivityCardProps {
   onToggleFavorite?: (id: string) => void;
   theme?: ThemeColors;
   width?: number;
+  showDistance?: boolean;
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -32,6 +34,7 @@ export const CompactActivityCard: React.FC<CompactActivityCardProps> = ({
   onPress,
   onToggleFavorite,
   width = DEFAULT_COMPACT_CARD_WIDTH,
+  showDistance = false,
 }) => {
   const { language } = usePreferences();
 
@@ -75,6 +78,18 @@ export const CompactActivityCard: React.FC<CompactActivityCardProps> = ({
         resizeMode="cover"
       />
 
+      {/* ── DÉGRADÉ DE NOIR PROGRESSIF (HAUT TRANSPARENT, BAS NOIR) ── */}
+      <LinearGradient
+        colors={[
+          'transparent',
+          'rgba(0, 0, 0, 0.1)',
+          'rgba(0, 0, 0, 0.65)',
+          'rgba(0, 0, 0, 0.94)',
+        ]}
+        locations={[0, 0.35, 0.7, 1]}
+        style={StyleSheet.absoluteFill}
+      />
+
       {/* Floating Heart Button (Coeur) top-right */}
       <TouchableOpacity
         activeOpacity={0.75}
@@ -91,10 +106,18 @@ export const CompactActivityCard: React.FC<CompactActivityCardProps> = ({
         />
       </TouchableOpacity>
 
-      {/* Bottom Immersive Scrim Overlay (Nom + Prix sur voile sombre, zéro fond blanc) */}
+      {/* Bottom Immersive Scrim Overlay (Nom + Prix sur dégradé noir) */}
       <View style={styles.bottomOverlay}>
-        <View style={styles.pricePill}>
-          <Text style={styles.priceText}>{formatPrice()}</Text>
+        <View style={styles.pillRow}>
+          <View style={styles.pricePill}>
+            <Text style={styles.priceText}>{formatPrice()}</Text>
+          </View>
+          {showDistance && Boolean(activity.distance) && (
+            <View style={styles.distancePill}>
+              <Ionicons name="location-sharp" size={10} color="#FDE047" />
+              <Text style={styles.distanceText}>{activity.distance}</Text>
+            </View>
+          )}
         </View>
 
         <Text
@@ -143,22 +166,41 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    paddingHorizontal: 10,
-    paddingTop: 14,
-    paddingBottom: 10,
-    backgroundColor: 'rgba(10, 17, 34, 0.78)',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255, 255, 255, 0.08)',
+    paddingHorizontal: 11,
+    paddingBottom: 11,
+    paddingTop: 8,
+  },
+  pillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+    flexWrap: 'wrap',
   },
   pricePill: {
-    alignSelf: 'flex-start',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 8,
     backgroundColor: 'rgba(56, 189, 248, 0.2)',
     borderWidth: 1,
     borderColor: 'rgba(56, 189, 248, 0.45)',
-    marginBottom: 6,
+  },
+  distancePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: 'rgba(253, 224, 71, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(253, 224, 71, 0.4)',
+  },
+  distanceText: {
+    color: '#FDE047',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   priceText: {
     color: '#38BDF8',

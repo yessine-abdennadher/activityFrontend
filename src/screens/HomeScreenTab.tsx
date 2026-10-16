@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,18 +9,22 @@ import {
   TextInput,
   Modal,
   ActivityIndicator,
+  Animated,
+  Easing,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useLocation } from '../context/LocationContext';
 import { useTranslation } from '../hooks/useTranslation';
-import { ActivityCard } from '../components/ActivityCard';
-import { CompactActivityCard, PartnerEventsSection, PartnerPromosSection } from '../components/home';
+import { CompactActivityCard } from '../components/home/CompactActivityCard';
+import { PartnerEventsSection } from '../components/home/PartnerEventsSection';
+import { PartnerPromosSection } from '../components/home/PartnerPromosSection';
 import { AnimatedGlowButton } from '../components/ui/AnimatedGlowButton';
 import { calculateDistanceKm, formatDistance } from '../services/googleMapsService';
 import { getActivityLocalizedText } from '../services/activityService';
 import { getLocalizedCityName, getLocalizedCityBadge } from '../services/locationService';
-import type { Activity } from '../types';
+import type { Activity, AuthUser } from '../types';
 
 interface HomeScreenTabProps {
   activities: Activity[];
@@ -32,6 +36,8 @@ interface HomeScreenTabProps {
   onOpenRecommendations: () => void;
   onOpenNotifications: () => void;
   unreadCount: number;
+  currentUser?: AuthUser | null;
+  onOpenProfile?: () => void;
 }
 
 export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
@@ -44,6 +50,8 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
   onOpenRecommendations,
   onOpenNotifications,
   unreadCount,
+  currentUser,
+  onOpenProfile,
 }) => {
   const { isDark, theme, toggleDarkMode, language } = usePreferences();
   const { t } = useTranslation();
@@ -89,25 +97,60 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
     };
   });
 
+  // Activités triées par distance réelle croissante (les plus proches de l'utilisateur en premier)
+  const nearbyActivities = useMemo(() => {
+    return [...localizedActivities].sort((a, b) => {
+      const distA = a.distanceKm ?? 9999;
+      const distB = b.distanceKm ?? 9999;
+      return distA - distB;
+    });
+  }, [localizedActivities]);
+
+  // Activités « À la une » triées par compte : Premium d'abord, puis Pro, puis standard (et par note)
+  const trendingActivities = useMemo(() => {
+    const getTierWeight = (act: Activity): number => {
+      const tier = act.partnerTier || (act.events && act.events.length > 0 ? 'premium' : act.promotion ? 'pro' : 'standard');
+      if (tier === 'premium') return 3;
+      if (tier === 'pro') return 2;
+      return 1;
+    };
+
+    return [...localizedActivities].sort((a, b) => {
+      const weightDiff = getTierWeight(b) - getTierWeight(a);
+      if (weightDiff !== 0) return weightDiff;
+      return (b.rating ?? 0) - (a.rating ?? 0);
+    });
+  }, [localizedActivities]);
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-      {/* Header card with rich ambient Mediterranean Blue gradient backdrop */}
-      <View style={[styles.headerCard, { backgroundColor: isDark ? '#081730' : '#0284C7' }]}>
-        {/* Ambient background glow orbs */}
-        <View style={styles.ambientOrb1} />
-        <View style={styles.ambientOrb2} />
-        <View style={styles.ambientOrb3} />
-
+      {/* Header card with WIN logo gradient from central theme */}
+      <LinearGradient
+        colors={theme.headerGradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.headerCard}
+      >
         <View style={styles.headerTop}>
-          <View style={styles.avatarWrapper}>
+          <TouchableOpacity
+            style={styles.avatarWrapper}
+            onPress={onOpenProfile}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Mon profil"
+          >
             <Image
-              source={{ uri: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80' }}
+              source={{
+                uri:
+                  currentUser?.avatar ||
+                  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+              }}
               style={styles.avatar}
             />
             <View style={styles.onlineBadge} />
-          </View>
+          </TouchableOpacity>
 
-          {/* Interactive Scalable Location Badge (Sfax Launch Priority) */}
+          {/* Interactive Scalable Location Badge */}
           <TouchableOpacity
             style={styles.locationBadge}
             onPress={() => setCityModalVisible(true)}
@@ -152,6 +195,7 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
           </View>
         </View>
 
+
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>{t('heroQuestion')}</Text>
           <Text style={styles.headerSub}>
@@ -159,47 +203,48 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
           </Text>
         </View>
 
-        {/* Glassmorphic Search bar */}
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="rgba(255,255,255,0.75)" style={{ marginRight: 8 }} />
-          <TextInput
-            placeholder={t('searchPlaceholder')}
-            placeholderTextColor="rgba(255,255,255,0.65)"
-            style={styles.searchInput}
-          />
-        </View>
-
-        {/* Animated Glow Recommendation Button */}
-        <View style={{ marginTop: 16 }}>
+        {/* Animated Glow Recommendation Button with 3D Rotating Iridescent Orb */}
+        <View style={{ marginTop: 14 }}>
           <AnimatedGlowButton
             title={t('recommendations')}
             subtitle={t('recommendationIntro')}
-            icon={<Ionicons name="sparkles" size={24} color="#FFFFFF" />}
             onPress={onOpenRecommendations}
           />
         </View>
-      </View>
+      </LinearGradient>
 
-      {/* 🎤 Section Événements & Soirées (Partenaires Premium) */}
-      <PartnerEventsSection
-        activities={localizedActivities}
-        onSelectActivity={(act) => onSelectActivity(act as any)}
-      />
+
 
       {/* 🏷️ Section Bons Plans & Promos (Partenaires Pro) */}
       <PartnerPromosSection
         activities={localizedActivities}
         onSelectActivity={(act) => onSelectActivity(act as any)}
       />
+      {/* 🎤 Section Événements & Soirées (Partenaires Premium) */}
+      <PartnerEventsSection
+        activities={localizedActivities}
+        onSelectActivity={(act) => onSelectActivity(act as any)}
+      />
 
-      {/* Activités en défilement horizontal (2 cartes visibles, scroll horizontal) */}
+      {/* ── Section À la une / Tendances (Priorité Premium > Pro > Standard, sans distance) ── */}
       <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
-            {language === 'ar' ? 'أفضل الأنشطة' : language === 'fr' ? 'À la une' : 'Trending'}
-          </Text>
+        <View style={styles.headerRow}>
+          <View style={styles.titleWithIcon}>
+            <View style={[styles.iconBadge, { backgroundColor: 'rgba(249, 115, 22, 0.15)' }]}>
+              <Ionicons name="flame" size={16} color="#F97316" />
+            </View>
+            <View>
+              <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
+                {language === 'ar' ? 'أفضل الأنشطة' : language === 'fr' ? 'À la une' : 'Trending'}
+              </Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>
+                {language === 'ar' ? 'أبرز التجارب المميزة' : language === 'fr' ? 'Sélection coup de cœur' : 'Top featured picks'}
+              </Text>
+            </View>
+          </View>
+
           <Text style={[styles.seeAll, { color: theme.primary }]}>
-            {localizedActivities.length} {language === 'ar' ? 'نشاط' : 'sorties'}
+            {trendingActivities.length} {language === 'ar' ? 'نشاط' : 'sorties'}
           </Text>
         </View>
 
@@ -208,11 +253,12 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalCardList}
         >
-          {localizedActivities.map((act) => (
+          {trendingActivities.map((act) => (
             <CompactActivityCard
-              key={`compact-${act.id}`}
+              key={`trending-${act.id}`}
               activity={act as any}
               theme={theme}
+              showDistance={false}
               isFavorite={favorites.includes(act.id)}
               onPress={() => onSelectActivity(act as any)}
               onToggleFavorite={() => onToggleFavorite(act.id)}
@@ -221,27 +267,41 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
         </ScrollView>
       </View>
 
-      {/* Nearby Activities with Live Dynamic Distance */}
+      {/* ── Nearby Activities with Live Dynamic Distance (Triées par proximité, avec distance) ── */}
       <View style={styles.sectionContainer}>
-        <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t('nearbyActivities')}</Text>
-          <Text style={[styles.locationSub, { color: theme.textMuted }]}>
-            {location.city === 'Sfax' ? t('sfaxNearby') : getLocalizedCityName(location.city, language)}
-          </Text>
+        <View style={styles.headerRow}>
+          <View style={styles.titleWithIcon}>
+            <View style={[styles.iconBadge, { backgroundColor: 'rgba(2, 132, 199, 0.15)' }]}>
+              <Ionicons name="compass" size={16} color="#0284C7" />
+            </View>
+            <View>
+              <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
+                {t('nearbyActivities')}
+              </Text>
+              <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>
+                {location.city === 'Sfax' ? t('sfaxNearby') : getLocalizedCityName(location.city, language)}
+              </Text>
+            </View>
+          </View>
         </View>
 
-        <View style={{ gap: 20 }}>
-          {localizedActivities.map((act) => (
-            <ActivityCard
-              key={act.id}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalCardList}
+        >
+          {nearbyActivities.map((act) => (
+            <CompactActivityCard
+              key={`nearby-${act.id}`}
               activity={act as any}
               theme={theme}
+              showDistance={true}
               isFavorite={favorites.includes(act.id)}
               onPress={() => onSelectActivity(act as any)}
               onToggleFavorite={() => onToggleFavorite(act.id)}
             />
           ))}
-        </View>
+        </ScrollView>
       </View>
 
       {/* City Switcher & GPS Permission Modal */}
@@ -362,49 +422,22 @@ const styles = StyleSheet.create({
   headerCard: {
     paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 28,
+    paddingBottom: 24,
     borderBottomLeftRadius: 36,
     borderBottomRightRadius: 36,
     position: 'relative',
     overflow: 'hidden',
-    shadowColor: '#0284C7',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
+    shadowOpacity: 0.3,
+    shadowRadius: 22,
     elevation: 8,
-  },
-  ambientOrb1: {
-    position: 'absolute',
-    top: -50,
-    left: -40,
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(56, 189, 248, 0.25)',
-  },
-  ambientOrb2: {
-    position: 'absolute',
-    top: 40,
-    right: -60,
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: 'rgba(3, 105, 161, 0.4)',
-  },
-  ambientOrb3: {
-    position: 'absolute',
-    bottom: -80,
-    left: '25%',
-    width: 260,
-    height: 260,
-    borderRadius: 130,
-    backgroundColor: 'rgba(14, 165, 233, 0.2)',
   },
   headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
     zIndex: 10,
   },
   avatarWrapper: {
@@ -468,8 +501,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#EF4444',
   },
   headerTextContainer: {
-    alignItems: 'flex-end',
-    marginBottom: 18,
+    alignItems: 'center',
+    marginBottom: 14,
     zIndex: 10,
   },
   headerTitle: {
@@ -478,11 +511,13 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     marginBottom: 4,
     letterSpacing: -0.5,
+    textAlign: 'center',
   },
   headerSub: {
     fontSize: 13,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.92)',
     lineHeight: 18,
+    textAlign: 'center',
   },
   searchBar: {
     flexDirection: 'row',
@@ -506,23 +541,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     marginTop: 24,
   },
-  sectionHeader: {
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 14,
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  titleWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  iconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
+  },
+  sectionSubtitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 1,
   },
   seeAll: {
     fontSize: 13,
     fontWeight: '800',
-  },
-  locationSub: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   horizontalCardList: {
     paddingRight: 16,

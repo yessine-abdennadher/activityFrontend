@@ -13,20 +13,40 @@ interface MapScreenProps {
 }
 
 export const MapScreen: React.FC<MapScreenProps> = ({ activities, onNavigate, onSelectActivity }) => {
-  const { theme } = usePreferences();
+  const { theme, language } = usePreferences();
   const { t } = useTranslation();
+  const isRTL = language === 'ar';
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
-      <View style={[styles.header, { backgroundColor: theme.headerBg }]}>
-        <TouchableOpacity onPress={() => onNavigate('home')} style={styles.headerButton}>
-          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: theme.headerBg,
+            flexDirection: isRTL ? 'row-reverse' : 'row',
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => onNavigate('home')}
+          style={styles.headerButton}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={isRTL ? 'arrow-forward' : 'arrow-back'}
+            size={22}
+            color="#FFFFFF"
+          />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('nearbyMap')}</Text>
         <View style={{ width: 40 }} />
       </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <GoogleMapView activities={activities} onSelectActivity={(act) => onSelectActivity(act)} />
+      <ScrollView contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+        <GoogleMapView
+          activities={activities}
+          onSelectActivity={(act) => onSelectActivity(act)}
+        />
       </ScrollView>
     </View>
   );

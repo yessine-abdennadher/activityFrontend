@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { usePreferences } from '../../context/AppPreferencesContext';
 import { getActivityLocalizedText } from '../../services/activityService';
 import type { Activity, ActivityEvent } from '../../types';
@@ -87,8 +88,17 @@ export const EventCard: React.FC<EventCardProps> = ({
         resizeMode="cover"
       />
 
-      {/* ── VOILE SOMBRE EN BAS (POUR LISIBILITÉ DU TEXTE) ── */}
-      <View style={styles.bottomScrim} />
+      {/* ── DÉGRADÉ DE NOIR PROGRESSIF (HAUT TRANSPARENT, BAS NOIR PROFOND) ── */}
+      <LinearGradient
+        colors={[
+          'transparent',
+          'rgba(0, 0, 0, 0.1)',
+          'rgba(0, 0, 0, 0.65)',
+          'rgba(0, 0, 0, 0.95)',
+        ]}
+        locations={[0, 0.35, 0.7, 1]}
+        style={StyleSheet.absoluteFill}
+      />
 
       {/* ── TEXTE SUPERPOSÉ EN BAS (TITRE, DATE, PRIX) ── */}
       <View style={styles.infoOverlay}>

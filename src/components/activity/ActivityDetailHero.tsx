@@ -3,6 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Activity } from '../../types';
 import { ThemeColors } from '../../theme/theme';
+import { activityActionService } from '../../services/activityActionService';
 
 interface ActivityDetailHeroProps {
   activity: Activity;
@@ -12,7 +13,7 @@ interface ActivityDetailHeroProps {
   isDark: boolean;
   theme: ThemeColors;
   onBack: () => void;
-  onShare: () => void;
+  onShare?: () => void;
   onToggleFavorite: (id: string) => void;
 }
 
@@ -27,6 +28,19 @@ export const ActivityDetailHero: React.FC<ActivityDetailHeroProps> = ({
   onShare,
   onToggleFavorite,
 }) => {
+  const handleShare = () => {
+    if (onShare) {
+      onShare();
+    } else {
+      activityActionService.shareActivity({
+        name: localizedName,
+        city: localizedCity,
+        price: activity.price,
+        rating: activity.rating,
+        reviewsCount: activity.reviewsCount,
+      });
+    }
+  };
   return (
     <View style={styles.hero}>
       <Image
@@ -53,7 +67,7 @@ export const ActivityDetailHero: React.FC<ActivityDetailHeroProps> = ({
           <TouchableOpacity
             accessibilityLabel="Partager"
             accessibilityRole="button"
-            onPress={onShare}
+            onPress={handleShare}
             style={[styles.actionButton, { backgroundColor: isDark ? 'rgba(30, 41, 59, 0.85)' : 'rgba(255, 255, 255, 0.9)' }]}
             activeOpacity={0.8}
           >

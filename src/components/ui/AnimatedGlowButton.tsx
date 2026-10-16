@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Animated, Easing } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Animated, Easing, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { WIN_COLORS } from '../../theme';
 
 interface AnimatedGlowButtonProps {
   title: string;
@@ -17,11 +18,11 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
 }) => {
   const pressScale = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
-  const sparkleRotate = useRef(new Animated.Value(0)).current;
+  const orbRotate = useRef(new Animated.Value(0)).current;
   const sweepAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // 1. Neon border pulse breathing (glow intensity)
+    // 1. Neon cyan/violet border pulse breathing
     const glowLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
@@ -39,11 +40,11 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
       ])
     );
 
-    // 2. Slow subtle sparkle icon rotation
+    // 2. Smooth 360-degree rotating 3D iridescent orb (WIN Logo colors)
     const rotateLoop = Animated.loop(
-      Animated.timing(sparkleRotate, {
+      Animated.timing(orbRotate, {
         toValue: 1,
-        duration: 4000,
+        duration: 5000,
         easing: Easing.linear,
         useNativeDriver: true,
       })
@@ -76,9 +77,9 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
       rotateLoop.stop();
       sweepLoop.stop();
     };
-  }, [glowAnim, sparkleRotate, sweepAnim]);
+  }, [glowAnim, orbRotate, sweepAnim]);
 
-  const spin = sparkleRotate.interpolate({
+  const spin = orbRotate.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
@@ -112,7 +113,7 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
         ]}
       >
         <View style={styles.cyberContainer}>
-          {/* Pulsing neon border overlay (100% Native Driver) */}
+          {/* Pulsing neon border overlay (Electric Cyan -> Violet undertones) */}
           <Animated.View
             pointerEvents="none"
             style={[
@@ -120,7 +121,7 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
               {
                 opacity: glowAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [0.3, 0.9],
+                  outputRange: [0.35, 0.95],
                 }),
               },
             ]}
@@ -129,7 +130,7 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
           {/* Luminous Light Glass Backdrop */}
           <View style={styles.deepBackdrop} />
 
-          {/* Soft Luminous corner accents */}
+          {/* Soft Luminous corner accents matching WIN logo */}
           <View style={[styles.cornerGlow, styles.cornerTopRight]} />
           <View style={[styles.cornerGlow, styles.cornerBottomLeft]} />
 
@@ -145,11 +146,21 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
 
           {/* Content Row */}
           <View style={styles.contentRow}>
-            {/* Animated Sparkle Badge */}
+            {/* 3D Iridescent Rotating Holographic Orb */}
             <View style={styles.badgeWrapper}>
-              <Animated.View style={{ transform: [{ rotate: spin }] }}>
-                <Ionicons name="sparkles" size={22} color="#0284C7" />
+              <Animated.View style={[styles.orbRotateWrapper, { transform: [{ rotate: spin }] }]}>
+                {icon ? (
+                  icon
+                ) : (
+                  <Image
+                    source={require('../../assets/win_iridescent_orb.jpg')}
+                    style={styles.orbImage}
+                    resizeMode="cover"
+                  />
+                )}
               </Animated.View>
+              {/* Iridescent glass rim reflection */}
+              <View style={styles.orbGlassRing} />
             </View>
 
             {/* Text details */}
@@ -163,9 +174,9 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
               {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
             </View>
 
-            {/* Arrow chevron */}
+            {/* Arrow chevron with WIN Violet accent */}
             <View style={styles.arrowBox}>
-              <Ionicons name="arrow-forward" size={18} color="#0284C7" />
+              <Ionicons name="arrow-forward" size={18} color="#7C3AED" />
             </View>
           </View>
         </View>
@@ -177,9 +188,9 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
 const styles = StyleSheet.create({
   glowWrapper: {
     borderRadius: 24,
-    shadowColor: '#000000',
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
+    shadowColor: WIN_COLORS.violet,
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
     shadowOffset: { width: 0, height: 6 },
     elevation: 10,
   },
@@ -187,47 +198,47 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: 'rgba(56, 189, 248, 0.85)',
+    borderColor: 'rgba(0, 210, 255, 0.85)',
     zIndex: 5,
   },
   cyberContainer: {
     minHeight: 76,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: 'rgba(2, 132, 199, 0.25)',
+    borderColor: 'rgba(124, 58, 237, 0.3)',
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingVertical: 14,
     position: 'relative',
   },
   deepBackdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   cornerGlow: {
     position: 'absolute',
-    width: 130,
-    height: 130,
-    borderRadius: 65,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
   },
   cornerTopRight: {
     top: -50,
     right: -30,
-    backgroundColor: 'rgba(56, 189, 248, 0.25)',
+    backgroundColor: 'rgba(0, 210, 255, 0.25)', // WIN Electric Cyan
   },
   cornerBottomLeft: {
     bottom: -60,
     left: -30,
-    backgroundColor: 'rgba(2, 132, 199, 0.2)',
+    backgroundColor: 'rgba(124, 58, 237, 0.2)', // WIN Neon Violet
   },
   shimmerBeam: {
     position: 'absolute',
     top: 0,
     bottom: 0,
-    width: 70,
-    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    width: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   contentRow: {
     flexDirection: 'row',
@@ -236,19 +247,41 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   badgeWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: 'rgba(124, 58, 237, 0.4)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#7C3AED',
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  orbRotateWrapper: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: 'rgba(2, 132, 199, 0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#0284C7',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
+    overflow: 'hidden',
+  },
+  orbImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  orbGlassRing: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 255, 255, 0.65)',
+    pointerEvents: 'none',
   },
   textContainer: {
     flex: 1,
@@ -265,15 +298,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
   magicPill: {
-    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+    backgroundColor: 'rgba(124, 58, 237, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(2, 132, 199, 0.25)',
+    borderColor: 'rgba(124, 58, 237, 0.28)',
   },
   magicText: {
-    color: '#0284C7',
+    color: '#7C3AED',
     fontSize: 10,
     fontWeight: '800',
   },
@@ -288,7 +321,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(2, 132, 199, 0.1)',
+    backgroundColor: 'rgba(124, 58, 237, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },

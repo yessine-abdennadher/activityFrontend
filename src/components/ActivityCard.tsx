@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { StyleSheet, View, Text, Image, TouchableOpacity, Animated, Easing } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Activity } from '../types';
 import { ThemeColors } from '../theme/theme';
@@ -119,7 +120,12 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
       {/* ── Image & Badges Top Section ─────────────────────────────── */}
       <View style={styles.imageContainer}>
         <Image source={{ uri: activity.image }} style={styles.image} />
-        <View style={styles.gradientScrim} />
+        {/* ── Dégradé de noir progressif ── */}
+        <LinearGradient
+          colors={['rgba(0, 0, 0, 0.05)', 'rgba(0, 0, 0, 0.25)', 'rgba(0, 0, 0, 0.88)']}
+          locations={[0, 0.45, 1]}
+          style={StyleSheet.absoluteFill}
+        />
 
         <View style={styles.topBadgesRow}>
           {/* Favorite heart button */}

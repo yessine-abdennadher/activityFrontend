@@ -70,6 +70,7 @@ export interface Activity {
   events?: ActivityEvent[];
   promotion?: ActivityPromotion;
   powerReports?: PowerCommunityReports;
+  partnerTier?: PartnerTier;
 }
 
 export interface PowerCommunityReports {

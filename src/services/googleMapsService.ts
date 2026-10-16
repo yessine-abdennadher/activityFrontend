@@ -72,9 +72,11 @@ export function getGoogleMapsEmbedUrl(
   lat: number,
   lng: number,
   zoom = 14,
-  label?: string
+  label?: string,
+  language = 'fr'
 ): string {
   const query = label ? `${lat},${lng}+(${encodeURIComponent(label)})` : `${lat},${lng}`;
-  return `https://maps.google.com/maps?q=${query}&hl=fr&z=${zoom}&output=embed`;
+  const hl = language === 'ar' ? 'ar' : language === 'en' ? 'en' : 'fr';
+  return `https://maps.google.com/maps?q=${query}&hl=${hl}&z=${zoom}&output=embed`;
 }
 

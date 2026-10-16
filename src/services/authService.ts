@@ -260,3 +260,43 @@ export async function logout(): Promise<void> {
   await Storage.removeItem(STORAGE_KEYS.CURRENT_USER);
 }
 
+/**
+ * Met à jour la photo de profil (avatar) de l'utilisateur courant,
+ * sauvegarde localement dans le Storage et synchronise avec le backend si connecté.
+ */
+export async function updateUserAvatar(newAvatarUrl: string): Promise<AuthUser | null> {
+  try {
+    const savedUser = await Storage.getJson<AuthUser>(STORAGE_KEYS.CURRENT_USER);
+    if (!savedUser) return null;
+
+    const updatedUser: AuthUser = {
+      ...savedUser,
+      avatar: newAvatarUrl,
+    };
+
+    await Storage.setJson(STORAGE_KEYS.CURRENT_USER, updatedUser);
+
+    if (accessToken) {
+      try {
+        const baseUrl = getApiBaseUrl();
+        await fetch(`${baseUrl}/users/profile`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
+          },
+          body: JSON.stringify({ avatar: newAvatarUrl }),
+        });
+      } catch (err) {
+        console.warn('[authService] Sync avatar avec backend différée (sauvegarde locale réussie):', err);
+      }
+    }
+
+    return updatedUser;
+  } catch (err) {
+    console.error('[authService] Erreur mise à jour avatar:', err);
+    return null;
+  }
+}
+
+

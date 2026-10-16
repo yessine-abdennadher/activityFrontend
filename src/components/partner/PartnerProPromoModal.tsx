@@ -19,12 +19,14 @@ interface PartnerProPromoModalProps {
   label: string;
   promoType: 'all' | 'item';
   targetItem: string;
+  validUntil?: string;
   theme: ThemeColors;
   isDark: boolean;
   onDiscountChange: (val: string) => void;
   onLabelChange: (val: string) => void;
   onPromoTypeChange: (val: 'all' | 'item') => void;
   onTargetItemChange: (val: string) => void;
+  onValidUntilChange?: (val: string) => void;
   onClose: () => void;
   onSave: () => void;
 }
@@ -36,12 +38,14 @@ export const PartnerProPromoModal: React.FC<PartnerProPromoModalProps> = ({
   label,
   promoType,
   targetItem,
+  validUntil = '',
   theme,
   isDark,
   onDiscountChange,
   onLabelChange,
   onPromoTypeChange,
   onTargetItemChange,
+  onValidUntilChange,
   onClose,
   onSave,
 }) => {
@@ -166,6 +170,22 @@ export const PartnerProPromoModal: React.FC<PartnerProPromoModalProps> = ({
               placeholderTextColor={theme.textMuted}
               value={label}
               onChangeText={onLabelChange}
+            />
+
+            <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Période / Date limite de validité :</Text>
+            <TextInput
+              style={[
+                styles.input,
+                {
+                  backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
+                  color: theme.textMain,
+                  borderColor: theme.cardBorder,
+                },
+              ]}
+              placeholder="Ex: Jusqu'au 31 Octobre, Ce week-end uniquement..."
+              placeholderTextColor={theme.textMuted}
+              value={validUntil}
+              onChangeText={onValidUntilChange}
             />
 
             <TouchableOpacity style={styles.submitBtn} onPress={onSave}>
