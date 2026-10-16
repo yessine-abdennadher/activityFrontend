@@ -24,6 +24,7 @@ import {
   removeGoogleAccount,
   type SavedGoogleAccount,
 } from '../services/googleAccountsStore';
+import { useToast, InlineToast } from '../components/ui/Toast';
 
 interface AuthScreenProps {
   initialMode?: 'login' | 'signup';
@@ -49,24 +50,43 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authSuccess, setAuthSuccess] = useState<string | null>(null);
 
-  const handleEmailAuth = async () => {
-    if (!email || !password) {
-      Alert.alert('خطأ', 'يرجى إدخال البريد الإلكتروني وكلمة السر');
+  const toast = useToast();
+
+  const handleEmailAuth = async (e?: any) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
+    setAuthError(null);
+    setAuthSuccess(null);
+
+    const cleanEmail = email.trim();
+    if (!cleanEmail || !password) {
+      const msg = 'Veuillez saisir votre adresse email et votre mot de passe.';
+      setAuthError(msg);
+      toast.error(msg, 'Champs obligatoires');
       return;
     }
 
     if (mode === 'signup') {
-      if (!fullName) {
-        Alert.alert('خطأ', 'يرجى إدخال الاسم الكامل');
+      if (!fullName.trim()) {
+        const msg = 'Veuillez renseigner votre nom complet.';
+        setAuthError(msg);
+        toast.error(msg, 'Nom requis');
         return;
       }
-      if (selectedRole === 'partner' && !establishmentName) {
-        Alert.alert('خطأ', 'يرجى إدخال اسم المقهى / المطرح / المشروع');
+      if (selectedRole === 'partner' && !establishmentName.trim()) {
+        const msg = "Veuillez renseigner le nom de votre établissement (ex: restaurant, café).";
+        setAuthError(msg);
+        toast.error(msg, 'Nom d’établissement requis');
         return;
       }
       if (password !== confirmPassword) {
-        Alert.alert('خطأ', 'كلمتا السر غير متطابقتين');
+        const msg = 'Les deux mots de passe ne correspondent pas.';
+        setAuthError(msg);
+        toast.error(msg, 'Mots de passe non identiques');
         return;
       }
     }
@@ -74,14 +94,19 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setIsLoading(true);
     try {
       const authenticatedUser = mode === 'login'
-        ? await login(email, password)
-        : await register(fullName, email, password, selectedRole, establishmentName);
-      setIsLoading(false);
-      Alert.alert('تم بنجاح! 🎉', mode === 'login' ? 'تم تسجيل الدخول بنجاح' : 'تم إنشاء الحساب بنجاح');
+        ? await login(cleanEmail, password)
+        : await register(fullName.trim(), cleanEmail, password, selectedRole, establishmentName.trim());
+      const successMsg = mode === 'login' ? 'Connexion réussie ! Bienvenue sur ActivityTN.' : 'Compte créé avec succès !';
+      setAuthSuccess(successMsg);
+      toast.success(successMsg, 'Succès 🎉');
       if (onSuccess) onSuccess(authenticatedUser);
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Impossible de contacter le serveur backend.';
+      console.error('[AuthScreen] Erreur auth:', errorMsg);
+      setAuthError(errorMsg);
+      toast.error(errorMsg, 'Échec de connexion');
+    } finally {
       setIsLoading(false);
-      Alert.alert('خطأ', error instanceof Error ? error.message : 'تعذر الاتصال بالخادم');
     }
   };
 
@@ -182,7 +207,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           <View style={{ width: 40 }} />
         )}
         <Text style={[styles.headerTitle, { color: theme.textMain }]}>
-          {mode === 'login' ? 'تسجيل الدخول' : 'إنشاء حساب جديد'}
+          {mode === 'login' ? t('loginTab') : t('signupTab')}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -190,12 +215,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Brand Banner */}
         <View style={styles.brandSection}>
-          <View style={[styles.iconCircle, { backgroundColor: theme.primary + '18' }]}>
-            <Ionicons name="sparkles" size={40} color={theme.primary} />
+          <View
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: '#FFFFFF',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 12,
+              shadowColor: '#0284C7',
+              shadowOpacity: 0.15,
+              shadowRadius: 8,
+              elevation: 4,
+            }}
+          >
+            <Image
+              source={require('../assets/logo.png')}
+              style={{ width: 56, height: 56, resizeMode: 'contain' }}
+            />
           </View>
-          <Text style={[styles.brandTitle, { color: theme.textMain }]}>MCHINA ActivityTN</Text>
+          <Text style={[styles.brandTitle, { color: theme.textMain }]}>Win</Text>
           <Text style={[styles.brandSubtitle, { color: theme.textMuted }]}>
-            اكتشف أفضل الأنشطة والأصدقاء بالقرب منك في تونس 🇹🇳
+            {t('brandHeroSub')}
           </Text>
         </View>
 
@@ -212,7 +254,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 mode === 'login' && { fontWeight: '700' },
               ]}
             >
-              تسجيل الدخول (Login)
+              {t('loginTab')}
             </Text>
           </TouchableOpacity>
 
@@ -227,7 +269,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 mode === 'signup' && { fontWeight: '700' },
               ]}
             >
-              حساب جديد (Sign Up)
+              {t('signupTab')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -247,7 +289,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <Ionicons name="logo-google" size={20} color="#EA4335" />
               </View>
               <Text style={[styles.googleButtonText, { color: theme.textMain }]}>
-                المتابعة باستخدام Google
+                {t('continueWithGoogle')}
               </Text>
             </>
           )}
@@ -255,7 +297,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
         <View style={styles.dividerRow}>
           <View style={[styles.dividerLine, { backgroundColor: theme.cardBorder }]} />
-          <Text style={[styles.dividerText, { color: theme.textMuted }]}>أو بواسطة البريد الإلكتروني</Text>
+          <Text style={[styles.dividerText, { color: theme.textMuted }]}>{t('orWithEmail')}</Text>
           <View style={[styles.dividerLine, { backgroundColor: theme.cardBorder }]} />
         </View>
 
@@ -265,7 +307,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             <>
               {/* Role Picker (Simple User vs Partner) */}
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: theme.textMain }]}>نوع الحساب (Rôle)</Text>
+                <Text style={[styles.inputLabel, { color: theme.textMain }]}>{t('accountType')}</Text>
                 <View style={styles.rolePickerRow}>
                   <TouchableOpacity
                     style={[
@@ -287,7 +329,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                         selectedRole === 'user' && { fontWeight: '700' },
                       ]}
                     >
-                      مستخدم عادي
+                      {t('userRoleSimple')}
                     </Text>
                   </TouchableOpacity>
 
@@ -311,18 +353,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                         selectedRole === 'partner' && { fontWeight: '700' },
                       ]}
                     >
-                      صاحب مشروع / مقهى
+                      {t('partnerRolePro')}
                     </Text>
                   </TouchableOpacity>
                 </View>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: theme.textMain }]}>الاسم الكامل</Text>
+                <Text style={[styles.inputLabel, { color: theme.textMain }]}>{t('fullNameLabel')}</Text>
                 <View style={[styles.inputWrapper, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                   <Ionicons name="person-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
                   <TextInput
-                    placeholder="مثال: أحمد التونسي"
+                    placeholder="Ahmed Tunisian"
                     placeholderTextColor={theme.textMuted}
                     value={fullName}
                     onChangeText={setFullName}
@@ -333,11 +375,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
               {selectedRole === 'partner' && (
                 <View style={styles.inputGroup}>
-                  <Text style={[styles.inputLabel, { color: theme.textMain }]}>اسم المقهى / المطعم / المشروع</Text>
+                  <Text style={[styles.inputLabel, { color: theme.textMain }]}>{t('establishmentNameLabel')}</Text>
                   <View style={[styles.inputWrapper, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                     <Ionicons name="business-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
                     <TextInput
-                      placeholder="مثال: Le Moulin Cafe & Lounge"
+                      placeholder="Le Moulin Cafe & Lounge"
                       placeholderTextColor={theme.textMuted}
                       value={establishmentName}
                       onChangeText={setEstablishmentName}
@@ -349,8 +391,113 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </>
           )}
 
+          {mode === 'login' && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.textMuted, marginBottom: 8, textAlign: 'left' }}>
+                ⚡ Demo Accounts :
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEmail('restaurant.pirate@activitytn.tn');
+                    setPassword('Partner123456!');
+                    setAuthError(null);
+                  }}
+                  style={{
+                    backgroundColor: email === 'restaurant.pirate@activitytn.tn' ? theme.primary + '20' : theme.cardBg,
+                    borderColor: email === 'restaurant.pirate@activitytn.tn' ? theme.primary : theme.cardBorder,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>🍽️</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMain }}>
+                    Restaurant Le Pirate
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setEmail('admin@activitytn.tn');
+                    setPassword('Admin123456!');
+                    setAuthError(null);
+                  }}
+                  style={{
+                    backgroundColor: email === 'admin@activitytn.tn' ? theme.primary + '20' : theme.cardBg,
+                    borderColor: email === 'admin@activitytn.tn' ? theme.primary : theme.cardBorder,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>👑</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMain }}>
+                    Admin
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setEmail('partner.moulin@activitytn.tn');
+                    setPassword('Partner123456!');
+                    setAuthError(null);
+                  }}
+                  style={{
+                    backgroundColor: email === 'partner.moulin@activitytn.tn' ? theme.primary + '20' : theme.cardBg,
+                    borderColor: email === 'partner.moulin@activitytn.tn' ? theme.primary : theme.cardBorder,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>☕</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMain }}>
+                    Café Le Moulin
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setEmail('user.sfax@activitytn.tn');
+                    setPassword('User123456!');
+                    setAuthError(null);
+                  }}
+                  style={{
+                    backgroundColor: email === 'user.sfax@activitytn.tn' ? theme.primary + '20' : theme.cardBg,
+                    borderColor: email === 'user.sfax@activitytn.tn' ? theme.primary : theme.cardBorder,
+                    borderWidth: 1,
+                    borderRadius: 12,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <Text style={{ fontSize: 14 }}>👤</Text>
+                  <Text style={{ fontSize: 12, fontWeight: '600', color: theme.textMain }}>
+                    User Sfax
+                  </Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          )}
+
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.textMain }]}>البريد الإلكتروني</Text>
+            <Text style={[styles.inputLabel, { color: theme.textMain }]}>{t('emailLabel')}</Text>
             <View style={[styles.inputWrapper, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <Ionicons name="mail-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
               <TextInput
@@ -366,7 +513,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.inputLabel, { color: theme.textMain }]}>كلمة السر</Text>
+            <Text style={[styles.inputLabel, { color: theme.textMain }]}>{t('passwordLabel')}</Text>
             <View style={[styles.inputWrapper, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <Ionicons name="lock-closed-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
               <TextInput
@@ -389,7 +536,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
           {mode === 'signup' && (
             <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: theme.textMain }]}>تأكيد كلمة السر</Text>
+              <Text style={[styles.inputLabel, { color: theme.textMain }]}>{t('confirmPasswordLabel')}</Text>
               <View style={[styles.inputWrapper, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                 <Ionicons name="shield-checkmark-outline" size={20} color={theme.textMuted} style={styles.inputIcon} />
                 <TextInput
@@ -404,23 +551,36 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </View>
           )}
 
-          {mode === 'login' && (
-            <TouchableOpacity style={styles.forgotPassRow} onPress={() => Alert.alert('تلميح', 'تم إرسال رابط استعادة كلمة السر إلى بريدك')}>
-              <Text style={[styles.forgotPassText, { color: theme.primary }]}>نسيت كلمة السر؟</Text>
-            </TouchableOpacity>
+          {/* Messages d'erreur et de succès directs dans l'UI */}
+          {authError && (
+            <InlineToast
+              message={authError}
+              type="error"
+              title={t('error')}
+              onClose={() => setAuthError(null)}
+            />
+          )}
+          {authSuccess && (
+            <InlineToast
+              message={authSuccess}
+              type="success"
+              title={t('success')}
+              onClose={() => setAuthSuccess(null)}
+            />
           )}
 
           {/* Submit Action Button */}
           <TouchableOpacity
+            accessibilityRole="button"
             style={[styles.submitButton, { backgroundColor: theme.primary }]}
-            onPress={handleEmailAuth}
+            onPress={(e) => handleEmailAuth(e)}
             disabled={isLoading || googleLoading}
           >
             {isLoading ? (
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <Text style={styles.submitButtonText}>
-                {mode === 'login' ? 'دخول' : 'إنشاء الحساب'}
+                {mode === 'login' ? t('loginTab') : t('signupTab')}
               </Text>
             )}
           </TouchableOpacity>

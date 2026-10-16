@@ -24,14 +24,19 @@ import {
   toggleActivityApproval,
   toggleActivityHighlight,
   deleteActivityByAdmin,
+  fetchAdminDiagnostics,
+  updatePartnerTier,
+  toggleGlobalElectricityMode,
 } from '../services/adminService';
-import type {
+import {
   AdminPlatformStats,
   AdminUser,
   AdminActivityItem,
   AuthUser,
   UserRole,
+  PartnerTier,
 } from '../types';
+import { AdminDiagnosticsTab } from '../components/admin/AdminDiagnosticsTab';
 
 interface AdminDashboardScreenProps {
   currentUser: AuthUser | null;
@@ -42,10 +47,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   currentUser,
   onBack,
 }) => {
-  const { isDark, theme, language } = usePreferences();
+  const { isDark, theme, language, setElectricityAlertActive } = usePreferences();
 
   // Navigation tab inside Admin Dashboard
-  const [activeTab, setActiveTab] = useState<'kpi' | 'activities' | 'users'>('kpi');
+  const [activeTab, setActiveTab] = useState<'kpi' | 'activities' | 'users' | 'diagnostics'>('kpi');
 
   // Loading & Refreshing states
   const [loading, setLoading] = useState(true);
@@ -56,6 +61,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   const [stats, setStats] = useState<AdminPlatformStats | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [activities, setActivities] = useState<AdminActivityItem[]>([]);
+  const [diagnosticsData, setDiagnosticsData] = useState<any>(null);
 
   // Filters for Activities
   const [activityStatusFilter, setActivityStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
@@ -76,6 +82,17 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
     } catch (err: any) {
       console.error('[AdminDashboard] Erreur chargement stats:', err.message);
       setErrorMessage(err.message || 'Erreur lors du chargement des statistiques.');
+    }
+  }, []);
+
+  // Load Diagnostics & Partner Telemetry
+  const loadDiagnostics = useCallback(async () => {
+    try {
+      const data = await fetchAdminDiagnostics();
+      setDiagnosticsData(data);
+    } catch (err: any) {
+      console.error('[AdminDashboard] Erreur chargement diagnostics:', err.message);
+      setErrorMessage(err.message || 'Erreur lors du chargement des diagnostics.');
     }
   }, []);
 
@@ -108,6 +125,60 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
     }
   }, [userRoleFilter, userSearch]);
 
+  // Basculer le statut Partenaire Standard / Pro / Premium
+  const handleTogglePartnerTier = async (partnerId: string, currentTier?: string) => {
+    const nextTier: PartnerTier =
+      currentTier === 'standard' || !currentTier
+        ? 'pro'
+        : currentTier === 'pro'
+        ? 'premium'
+        : 'standard';
+
+    try {
+      await updatePartnerTier(partnerId, nextTier);
+      if (diagnosticsData?.partnersStatus) {
+        setDiagnosticsData({
+          ...diagnosticsData,
+          partnersStatus: diagnosticsData.partnersStatus.map((p: any) =>
+            p.id === partnerId ? { ...p, partnerTier: nextTier } : p
+          ),
+        });
+      }
+      setUsers((prevUsers) =>
+        prevUsers.map((u) => (u._id === partnerId ? { ...u, partnerTier: nextTier } : u))
+      );
+      const tierTitle =
+        nextTier === 'premium'
+          ? 'PREMIUM 👑 (Soirées & Promos)'
+          : nextTier === 'pro'
+          ? 'PRO ⭐ (Promos exclusives)'
+          : 'STANDARD (Gratuit de base)';
+      Alert.alert('Palier Partenaire Mis à Jour 🎉', `Le partenaire est désormais en compte : ${tierTitle}`);
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible de mettre à jour le niveau du partenaire.');
+    }
+  };
+
+  // Activer ou désactiver le mode alerte coupure d'électricité (Plateforme globale)
+  const handleToggleGlobalElectricity = async (nextVal: boolean) => {
+    try {
+      const res = await toggleGlobalElectricityMode(nextVal);
+      setDiagnosticsData((prev: any) => ({
+        ...prev,
+        electricityAlertActive: res.electricityAlertActive,
+      }));
+      setElectricityAlertActive(res.electricityAlertActive);
+      Alert.alert(
+        res.electricityAlertActive ? 'Mode Électricité Activé ⚡💡' : 'Mode Électricité Désactivé',
+        res.electricityAlertActive
+          ? 'Tous les partenaires peuvent désormais déclarer s’ils ont de la lumière / un générateur, et les cartes affichent le badge doré !'
+          : 'Le mode électricité est désormais désactivé et repassé en veille normale.'
+      );
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible de modifier le mode électricité.');
+    }
+  };
+
   // Initial and reactive data fetching
   const refreshCurrentTab = useCallback(async () => {
     setErrorMessage(null);
@@ -117,8 +188,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
       await loadActivities();
     } else if (activeTab === 'users') {
       await loadUsers();
+    } else if (activeTab === 'diagnostics') {
+      await loadDiagnostics();
     }
-  }, [activeTab, loadStats, loadActivities, loadUsers]);
+  }, [activeTab, loadStats, loadActivities, loadUsers, loadDiagnostics]);
 
   useEffect(() => {
     setLoading(true);
@@ -319,6 +392,28 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
             ]}
           >
             Utilisateurs
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabItem,
+            activeTab === 'diagnostics' && { backgroundColor: theme.primary },
+          ]}
+          onPress={() => setActiveTab('diagnostics')}
+        >
+          <Ionicons
+            name="pulse-outline"
+            size={16}
+            color={activeTab === 'diagnostics' ? '#FFFFFF' : theme.textMuted}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 'diagnostics' ? '#FFFFFF' : theme.textMuted },
+            ]}
+          >
+            Diagnostics
           </Text>
         </TouchableOpacity>
       </View>
@@ -785,6 +880,52 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                             </Text>
                             {!isSelf && <Ionicons name="pencil" size={10} color="#64748B" style={{ marginLeft: 4 }} />}
                           </TouchableOpacity>
+
+                          {/* Palier Partenaire (Standard / Pro / Premium) */}
+                          {user.role === 'partner' && (
+                            <TouchableOpacity
+                              style={[
+                                styles.roleBadgeBtn,
+                                {
+                                  marginLeft: 6,
+                                  backgroundColor:
+                                    user.partnerTier === 'premium'
+                                      ? '#F3E8FF'
+                                      : user.partnerTier === 'pro'
+                                      ? '#FFEDD5'
+                                      : '#F1F5F9',
+                                  borderColor:
+                                    user.partnerTier === 'premium'
+                                      ? '#A855F7'
+                                      : user.partnerTier === 'pro'
+                                      ? '#F97316'
+                                      : '#94A3B8',
+                                  borderWidth: 1,
+                                },
+                              ]}
+                              onPress={() => handleTogglePartnerTier(user._id, user.partnerTier)}
+                            >
+                              <Text
+                                style={[
+                                  styles.roleBadgeText,
+                                  {
+                                    color:
+                                      user.partnerTier === 'premium'
+                                        ? '#9333EA'
+                                        : user.partnerTier === 'pro'
+                                        ? '#EA580C'
+                                        : '#475569',
+                                  },
+                                ]}
+                              >
+                                {user.partnerTier === 'premium'
+                                  ? '👑 PREMIUM'
+                                  : user.partnerTier === 'pro'
+                                  ? '⭐ PRO'
+                                  : 'STANDARD'}
+                              </Text>
+                            </TouchableOpacity>
+                          )}
                         </View>
 
                         {/* Status Switch bar */}
@@ -817,6 +958,17 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                 </View>
               )}
             </View>
+          )}
+
+          {/* TAB 4 : DIAGNOSTICS, TÉLÉMÉTRIE & STATUT PARTENAIRES */}
+          {activeTab === 'diagnostics' && (
+            <AdminDiagnosticsTab
+              diagnosticsData={diagnosticsData}
+              theme={theme}
+              isDark={isDark}
+              onTogglePartnerTier={handleTogglePartnerTier}
+              onToggleGlobalElectricity={handleToggleGlobalElectricity}
+            />
           )}
         </ScrollView>
       )}

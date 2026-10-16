@@ -59,11 +59,50 @@ export interface Activity {
   peopleMax?: number;
   // Dynamic situation & context attributes
   hasPowerBackup?: boolean; // Has generator / confirmed electricity during cuts
+  powerBackupMode?: boolean; // Mode Électricité & Lumière garantie en direct (affiche la lampe dorée allumée 💡)
   hasAirConditioning?: boolean; // Confirmed AC (good for hot weather)
   isOpenNow?: boolean;     // Confirmed open right now
+  openingTime?: string;    // e.g. "09:00"
+  closingTime?: string;    // e.g. "23:00"
+  openDays?: string[];     // e.g. ["Tous les jours"]
   phone?: string;          // Direct phone call (e.g. "+216 74 123 456")
   whatsapp?: string;       // Direct WhatsApp booking/info (e.g. "+216 98 123 456")
+  events?: ActivityEvent[];
+  promotion?: ActivityPromotion;
+  powerReports?: PowerCommunityReports;
 }
+
+export interface PowerCommunityReports {
+  yesVotes: number;
+  noVotes: number;
+  lastReportAt?: string | null;
+  lastReportStatus?: 'light_on' | 'light_off' | null;
+  userVote?: 'yes' | 'no' | null;
+}
+
+export interface ActivityEvent {
+  _id?: string;
+  id?: string;
+  title: string;
+  image?: string;
+  date?: string;
+  time?: string;
+  description?: string;
+  category?: string; // music, food, party, art
+  price?: number;
+}
+
+export interface ActivityPromotion {
+  isPromo: boolean;
+  promoType?: 'all' | 'item';
+  discountPercent: number;
+  targetItem?: string;
+  promoLabel: string;
+  validUntil?: string;
+}
+
+export type PartnerTier = 'standard' | 'pro' | 'premium';
+
 
 
 
@@ -125,8 +164,11 @@ export interface AuthUser {
   provider?: 'google' | 'email';
   role: UserRole;
   userType: UserType;
+  partnerTier?: PartnerTier;
   establishmentName?: string;
   permissions: UserPermission[];
+  lastLogin?: string;
+  lastActivityUpdate?: string;
 }
 
 export type AppTab = 'home' | 'explore' | 'favorites' | 'profile' | 'chatbot';
@@ -155,9 +197,37 @@ export interface AdminUser {
   email: string;
   role: UserRole;
   isActive: boolean;
+  partnerTier?: PartnerTier;
   city?: string;
   establishmentName?: string;
+  lastLogin?: string;
+  lastActivityUpdate?: string;
   createdAt?: string;
+}
+
+export interface AdminDiagnosticsResponse {
+  success: boolean;
+  diagnostics: {
+    telemetry: {
+      totalSessions: number;
+      screenViews: Array<{ screenName: string; count: number }>;
+      dailySessions: Array<{ date: string; count: number }>;
+    };
+    partnersStatus: Array<{
+      id: string;
+      name: string;
+      email: string;
+      establishmentName?: string;
+      partnerTier: PartnerTier;
+      lastLogin?: string;
+      lastActivityUpdate?: string;
+      activityCount: number;
+      isInactive: boolean;
+      hasStaleData: boolean;
+      city?: string;
+      phone?: string;
+    }>;
+  };
 }
 
 export interface AdminActivityItem {
@@ -223,7 +293,13 @@ export interface PartnerActivityItem {
   isFeatured?: boolean;
   isPopular?: boolean;
   hasPowerBackup?: boolean;
+  powerBackupMode?: boolean;
   hasAirConditioning?: boolean;
+  openingTime?: string;
+  closingTime?: string;
+  openDays?: string[];
+  events?: ActivityEvent[];
+  promotion?: ActivityPromotion;
   createdAt?: string;
 }
 
@@ -244,7 +320,11 @@ export interface PartnerActivityInput {
   phone?: string;
   whatsapp?: string;
   hasPowerBackup?: boolean;
+  powerBackupMode?: boolean;
   hasAirConditioning?: boolean;
+  openingTime?: string;
+  closingTime?: string;
+  openDays?: string[];
 }
 
 

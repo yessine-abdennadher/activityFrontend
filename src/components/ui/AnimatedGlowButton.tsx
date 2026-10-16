@@ -28,13 +28,13 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
           toValue: 1,
           duration: 1800,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(glowAnim, {
           toValue: 0,
           duration: 1800,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ])
     );
@@ -78,17 +78,6 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
     };
   }, [glowAnim, sparkleRotate, sweepAnim]);
 
-  // Interpolations matching bright Mediterranean theme
-  const borderColor = glowAnim.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: ['rgba(255, 255, 255, 0.6)', 'rgba(255, 255, 255, 0.95)', 'rgba(56, 189, 248, 0.7)'],
-  });
-
-  const shadowOpacity = glowAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.25, 0.55],
-  });
-
   const spin = sparkleRotate.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
@@ -118,12 +107,25 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
         style={[
           styles.glowWrapper,
           {
-            shadowOpacity,
             transform: [{ scale: pressScale }],
           },
         ]}
       >
-        <Animated.View style={[styles.cyberContainer, { borderColor }]}>
+        <View style={styles.cyberContainer}>
+          {/* Pulsing neon border overlay (100% Native Driver) */}
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.borderGlowOverlay,
+              {
+                opacity: glowAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.3, 0.9],
+                }),
+              },
+            ]}
+          />
+
           {/* Luminous Light Glass Backdrop */}
           <View style={styles.deepBackdrop} />
 
@@ -166,7 +168,7 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
               <Ionicons name="arrow-forward" size={18} color="#0284C7" />
             </View>
           </View>
-        </Animated.View>
+        </View>
       </Animated.View>
     </TouchableOpacity>
   );
@@ -176,14 +178,23 @@ const styles = StyleSheet.create({
   glowWrapper: {
     borderRadius: 24,
     shadowColor: '#000000',
+    shadowOpacity: 0.18,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 6 },
     elevation: 10,
+  },
+  borderGlowOverlay: {
+    ...StyleSheet.absoluteFill,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(56, 189, 248, 0.85)',
+    zIndex: 5,
   },
   cyberContainer: {
     minHeight: 76,
     borderRadius: 24,
     borderWidth: 1.5,
+    borderColor: 'rgba(2, 132, 199, 0.25)',
     backgroundColor: '#FFFFFF',
     overflow: 'hidden',
     justifyContent: 'center',

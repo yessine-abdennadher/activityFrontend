@@ -20,6 +20,9 @@ import {
   createPartnerActivity,
   updatePartnerActivity,
   deletePartnerActivity,
+  togglePartnerPowerMode,
+  updatePartnerPromotion,
+  addPartnerEvent,
 } from '../services/partnerService';
 import type {
   PartnerStats,
@@ -27,6 +30,9 @@ import type {
   PartnerActivityInput,
   AuthUser,
 } from '../types';
+import { PartnerPowerModeSwitch } from '../components/partner/PartnerPowerModeSwitch';
+import { PartnerProPromoModal } from '../components/partner/PartnerProPromoModal';
+import { PartnerProEventModal } from '../components/partner/PartnerProEventModal';
 
 interface PartnerDashboardScreenProps {
   currentUser: AuthUser | null;
@@ -37,7 +43,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   currentUser,
   onBack,
 }) => {
-  const { isDark, theme } = usePreferences();
+  const { isDark, theme, electricityAlertActive } = usePreferences();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,6 +74,30 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   const [formDescription, setFormDescription] = useState('');
   const [formHasAc, setFormHasAc] = useState(true);
   const [formHasPower, setFormHasPower] = useState(true);
+  const [formOpeningTime, setFormOpeningTime] = useState('09:00');
+  const [formClosingTime, setFormClosingTime] = useState('23:00');
+  const [formOpenDays, setFormOpenDays] = useState('Tous les jours');
+
+  // Modal Promo Pro & Premium
+  const [promoModalVisible, setPromoModalVisible] = useState(false);
+  const [promoTarget, setPromoTarget] = useState<PartnerActivityItem | null>(null);
+  const [promoDiscount, setPromoDiscount] = useState('20');
+  const [promoLabel, setPromoLabel] = useState('Offre Spéciale Menu');
+  const [promoType, setPromoType] = useState<'all' | 'item'>('all');
+  const [promoTargetItem, setPromoTargetItem] = useState('');
+
+  // Modal Événement Pro & Premium
+  const [eventModalVisible, setEventModalVisible] = useState(false);
+  const [eventTarget, setEventTarget] = useState<PartnerActivityItem | null>(null);
+  const [eventTitle, setEventTitle] = useState('Soirée Musique Live');
+  const [eventImage, setEventImage] = useState('');
+  const [eventDate, setEventDate] = useState('Ce samedi soir');
+  const [eventTime, setEventTime] = useState('21:00');
+  const [eventPrice, setEventPrice] = useState('20');
+  const [eventDesc, setEventDesc] = useState('Ambiance acoustique guitare & violon');
+
+  const isProPartner = currentUser?.partnerTier === 'pro' || currentUser?.partnerTier === 'premium';
+  const isPremiumPartner = currentUser?.partnerTier === 'premium';
 
   const loadData = useCallback(async () => {
     try {
@@ -104,6 +134,9 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
     setFormDescription('Découvrez nos spécialités gourmandes, cadre chaleureux et service soigné.');
     setFormHasAc(true);
     setFormHasPower(true);
+    setFormOpeningTime('09:00');
+    setFormClosingTime('23:00');
+    setFormOpenDays('Tous les jours');
     setModalVisible(true);
   };
 
@@ -119,7 +152,116 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
     setFormDescription(item.description || '');
     setFormHasAc(Boolean(item.hasAirConditioning));
     setFormHasPower(Boolean(item.hasPowerBackup));
+    setFormOpeningTime(item.openingTime || '09:00');
+    setFormClosingTime(item.closingTime || '23:00');
+    setFormOpenDays(item.openDays && item.openDays.length > 0 ? item.openDays[0] : 'Tous les jours');
     setModalVisible(true);
+  };
+
+  const handleTogglePowerMode = async (item: PartnerActivityItem) => {
+    if (!electricityAlertActive) {
+      Alert.alert(
+        'Mode Électricité Non Déclenché',
+        'Le mode alerte électricité n’a pas été activé par l’administrateur de l’application. Cette option sera accessible dès qu’une alerte coupure sera lancée.'
+      );
+      return;
+    }
+    const nextVal = item.powerBackupMode === false ? true : false;
+    try {
+      const updated = await togglePartnerPowerMode(item._id, nextVal);
+      setActivities((prev) =>
+        prev.map((a) => (a._id === item._id ? { ...a, powerBackupMode: updated.powerBackupMode } : a))
+      );
+      Alert.alert(
+        nextVal ? '💡 Mode Électricité & Lumière ACTIVÉ' : 'Mode Lumière désactivé',
+        nextVal
+          ? 'Votre offre affiche maintenant la lampe dorée allumée 💡 sur la carte pour tous les visiteurs !'
+          : 'Le mode lumière garantie est désormais éteint sur votre fiche.'
+      );
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message);
+    }
+  };
+
+  const handleOpenPromo = (item: PartnerActivityItem) => {
+    if (!isProPartner) {
+      Alert.alert(
+        '🔒 Fonctionnalité Partenaire Pro & Premium',
+        'L’ajout de promotions et réductions exclusives est réservé aux comptes Partenaire Pro & Premium ⭐. Veuillez contacter l’administrateur pour passer au statut Pro.'
+      );
+      return;
+    }
+    setPromoTarget(item);
+    setPromoDiscount(String(item.promotion?.discountPercent || '20'));
+    setPromoLabel(item.promotion?.promoLabel || 'Offre Spéciale Menu');
+    setPromoType((item.promotion as any)?.promoType || 'all');
+    setPromoTargetItem((item.promotion as any)?.targetItem || '');
+    setPromoModalVisible(true);
+  };
+
+  const handleSavePromo = async () => {
+    if (!promoTarget) return;
+    try {
+      const discount = parseInt(promoDiscount, 10) || 0;
+      const updated = await updatePartnerPromotion(promoTarget._id, {
+        isPromo: true,
+        promoType,
+        discountPercent: discount,
+        targetItem: promoType === 'item' ? promoTargetItem.trim() : undefined,
+        promoLabel: promoLabel.trim() || (promoType === 'item' && promoTargetItem ? `Promo sur ${promoTargetItem} (-${discount}%)` : `-${discount}% sur toute l'addition`),
+      });
+      setActivities((prev) =>
+        prev.map((a) => (a._id === promoTarget._id ? { ...a, promotion: updated.promotion } : a))
+      );
+      setPromoModalVisible(false);
+      Alert.alert('Succès 🎉', 'Votre promotion a été enregistrée avec succès et diffusée aux utilisateurs !');
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message);
+    }
+  };
+
+  const handleOpenEvent = (item: PartnerActivityItem) => {
+    if (!isPremiumPartner && !isProPartner) {
+      Alert.alert(
+        '🔒 Fonctionnalité Partenaire Premium',
+        'L’organisation d’événements et soirées musicales est réservée aux comptes Partenaire Premium 👑. Veuillez contacter l’administrateur pour passer au statut Premium.'
+      );
+      return;
+    }
+    setEventTarget(item);
+    setEventTitle('Soirée Acoustique & Guitare');
+    setEventImage(item.imageUrl || '');
+    setEventDate('Ce samedi soir');
+    setEventTime('21:00');
+    setEventPrice('20');
+    setEventDesc('Ambiance live intimiste, réservation recommandée');
+    setEventModalVisible(true);
+  };
+
+  const handleSaveEvent = async () => {
+    if (!eventTarget) return;
+    if (!eventTitle.trim()) {
+      Alert.alert('Champs requis', 'Veuillez renseigner le titre de la soirée.');
+      return;
+    }
+    try {
+      const updated = await addPartnerEvent(eventTarget._id, {
+        title: eventTitle.trim(),
+        image: eventImage.trim(),
+        date: eventDate.trim(),
+        time: eventTime.trim(),
+        price: parseFloat(eventPrice) || 0,
+        description: eventDesc.trim(),
+        category: 'music',
+      });
+      setActivities((prev) =>
+        prev.map((a) => (a._id === eventTarget._id ? { ...a, events: updated.events } : a))
+      );
+      setEventModalVisible(false);
+      Alert.alert('Soirée Live publiée 🎉', 'Votre événement a été ajouté à votre fiche établissement !');
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message);
+    }
   };
 
   const handleSaveActivity = async () => {
@@ -140,6 +282,9 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       description: formDescription.trim(),
       hasAirConditioning: formHasAc,
       hasPowerBackup: formHasPower,
+      openingTime: formOpeningTime.trim(),
+      closingTime: formClosingTime.trim(),
+      openDays: [formOpenDays.trim()],
     };
 
     setSubmitting(true);
@@ -402,9 +547,97 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                           )}
                           <View style={styles.ratingChip}>
                             <Ionicons name="star" size={11} color="#F59E0B" />
-                            <Text style={styles.ratingText}>{item.rating || 4.5} ({item.reviewsCount || 0})</Text>
+                            <Text style={styles.ratingText}>
+                              {(item.reviewsCount && item.reviewsCount > 0) ? (item.rating || 0) : 0} ({item.reviewsCount || 0})
+                            </Text>
                           </View>
                         </View>
+                      </View>
+                    </View>
+
+                    {/* Mode Électricité / Lumière en direct (Uniquement si activé par l'Administrateur) */}
+                    {electricityAlertActive && (
+                      <PartnerPowerModeSwitch
+                        powerBackupMode={item.powerBackupMode !== false}
+                        isDark={isDark}
+                        theme={theme}
+                        onToggle={() => handleTogglePowerMode(item)}
+                      />
+                    )}
+
+                    {/* Horaires et Options Partenaire Pro (Promotions & Soirées Live) */}
+                    <View style={{ paddingHorizontal: 14, marginTop: 8, gap: 6 }}>
+                      {/* Horaires */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Ionicons name="time-outline" size={13} color="#10B981" />
+                        <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textMain }}>
+                          Horaires : {item.openingTime || '09:00'} - {item.closingTime || '23:00'} ({item.openDays && item.openDays.length > 0 ? item.openDays[0] : 'Tous les jours'})
+                        </Text>
+                      </View>
+
+                      {/* Promo active */}
+                      {item.promotion?.isPromo && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF2F2', padding: 6, borderRadius: 8 }}>
+                          <Text style={{ fontSize: 12 }}>🏷️</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#DC2626' }}>
+                            Promo active : {item.promotion.promoLabel} (-{item.promotion.discountPercent}%)
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Événement actif */}
+                      {Boolean(item.events && item.events.length > 0) && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FDF2F8', padding: 6, borderRadius: 8 }}>
+                          <Text style={{ fontSize: 12 }}>🎵</Text>
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#DB2777' }}>
+                            Soirée : {item.events![0].title} ({item.events![0].date} {item.events![0].time})
+                          </Text>
+                        </View>
+                      )}
+
+                      {/* Boutons Pro Promo & Soirée */}
+                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                        <TouchableOpacity
+                          onPress={() => handleOpenPromo(item)}
+                          style={{
+                            flex: 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            backgroundColor: isProPartner ? '#FEF2F2' : (isDark ? '#334155' : '#F1F5F9'),
+                            borderColor: isProPartner ? '#F87171' : theme.cardBorder,
+                            borderWidth: 1,
+                            paddingVertical: 7,
+                            borderRadius: 10,
+                          }}
+                        >
+                          <Ionicons name={isProPartner ? "pricetag" : "lock-closed"} size={13} color={isProPartner ? "#DC2626" : "#64748B"} />
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: isProPartner ? "#DC2626" : "#64748B" }}>
+                            {isProPartner ? '🏷️ Gérer Promo' : '🔒 Promo (Pro)'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() => handleOpenEvent(item)}
+                          style={{
+                            flex: 1,
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: 4,
+                            backgroundColor: isProPartner ? '#FDF2F8' : (isDark ? '#334155' : '#F1F5F9'),
+                            borderColor: isProPartner ? '#F472B6' : theme.cardBorder,
+                            borderWidth: 1,
+                            paddingVertical: 7,
+                            borderRadius: 10,
+                          }}
+                        >
+                          <Ionicons name={isProPartner ? "musical-notes" : "lock-closed"} size={13} color={isProPartner ? "#DB2777" : "#64748B"} />
+                          <Text style={{ fontSize: 11, fontWeight: '800', color: isProPartner ? "#DB2777" : "#64748B" }}>
+                            {isProPartner ? '🎵 Soirée Live' : '🔒 Soirée (Pro)'}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
 
@@ -573,6 +806,39 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                 onChangeText={setFormDescription}
               />
 
+              {/* Horaires d'ouverture et de fermeture */}
+              <View style={styles.rowTwoCols}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Heure d'ouverture :</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
+                    placeholder="09:00"
+                    placeholderTextColor={theme.textMuted}
+                    value={formOpeningTime}
+                    onChangeText={setFormOpeningTime}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Heure de fermeture :</Text>
+                  <TextInput
+                    style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
+                    placeholder="23:00"
+                    placeholderTextColor={theme.textMuted}
+                    value={formClosingTime}
+                    onChangeText={setFormClosingTime}
+                  />
+                </View>
+              </View>
+
+              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Jours d'ouverture :</Text>
+              <TextInput
+                style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
+                placeholder="Tous les jours / Lun - Sam"
+                placeholderTextColor={theme.textMuted}
+                value={formOpenDays}
+                onChangeText={setFormOpenDays}
+              />
+
               {/* Options & Confort */}
               <View style={styles.switchRow}>
                 <View style={{ flex: 1 }}>
@@ -608,6 +874,46 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* MODAL PROMOTION PRO & PREMIUM */}
+      <PartnerProPromoModal
+        visible={promoModalVisible}
+        targetActivity={promoTarget}
+        discount={promoDiscount}
+        label={promoLabel}
+        promoType={promoType}
+        targetItem={promoTargetItem}
+        theme={theme}
+        isDark={isDark}
+        onDiscountChange={setPromoDiscount}
+        onLabelChange={setPromoLabel}
+        onPromoTypeChange={setPromoType}
+        onTargetItemChange={setPromoTargetItem}
+        onClose={() => setPromoModalVisible(false)}
+        onSave={handleSavePromo}
+      />
+
+      {/* MODAL ÉVÉNEMENT / SOIRÉE PRO */}
+      <PartnerProEventModal
+        visible={eventModalVisible}
+        targetActivity={eventTarget}
+        title={eventTitle}
+        image={eventImage}
+        date={eventDate}
+        time={eventTime}
+        price={eventPrice}
+        desc={eventDesc}
+        theme={theme}
+        isDark={isDark}
+        onTitleChange={setEventTitle}
+        onImageChange={setEventImage}
+        onDateChange={setEventDate}
+        onTimeChange={setEventTime}
+        onPriceChange={setEventPrice}
+        onDescChange={setEventDesc}
+        onClose={() => setEventModalVisible(false)}
+        onSave={handleSaveEvent}
+      />
     </View>
   );
 };

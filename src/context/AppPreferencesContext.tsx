@@ -3,6 +3,7 @@ import { lightTheme, darkTheme, ThemeColors } from '../theme/theme';
 import { translations, Language, TranslationKey } from '../constants/translations';
 
 import { Storage, STORAGE_KEYS } from '../services/storage';
+import { fetchSystemStatus } from '../services/activityService';
 
 export type { Language } from '../constants/translations';
 
@@ -11,8 +12,11 @@ interface PreferencesContextType {
   isDark: boolean;
   theme: ThemeColors;
   language: Language;
+  electricityAlertActive: boolean;
   toggleDarkMode: () => void;
   setLanguage: (lang: Language) => void;
+  setElectricityAlertActive: (active: boolean) => void;
+  refreshElectricityAlert: () => Promise<void>;
   t: (key: TranslationKey) => string;
 }
 
@@ -21,6 +25,17 @@ const PreferencesContext = createContext<PreferencesContextType | null>(null);
 export function AppPreferencesProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<'light' | 'dark'>('light');
   const [language, setLanguageState] = useState<Language>('ar');
+  const [electricityAlertActive, setElectricityAlertActive] = useState<boolean>(false);
+
+  // Synchronisation du statut global électricité
+  const refreshElectricityAlert = React.useCallback(async () => {
+    try {
+      const res = await fetchSystemStatus();
+      setElectricityAlertActive(res.electricityAlertActive);
+    } catch {
+      // Ignorer si offline
+    }
+  }, []);
 
   // Restauration des préférences au démarrage
   React.useEffect(() => {
@@ -34,7 +49,8 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
         setLanguageState(savedLang as Language);
       }
     });
-  }, []);
+    refreshElectricityAlert();
+  }, [refreshElectricityAlert]);
 
   const toggleDarkMode = () => {
     setMode((prev) => {
@@ -61,11 +77,14 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       isDark: mode === 'dark',
       theme,
       language,
+      electricityAlertActive,
       toggleDarkMode,
       setLanguage,
+      setElectricityAlertActive,
+      refreshElectricityAlert,
       t,
     }),
-    [mode, theme, language]
+    [mode, theme, language, electricityAlertActive, refreshElectricityAlert]
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;

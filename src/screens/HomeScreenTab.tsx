@@ -15,8 +15,8 @@ import { usePreferences } from '../context/AppPreferencesContext';
 import { useLocation } from '../context/LocationContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { ActivityCard } from '../components/ActivityCard';
+import { CompactActivityCard, PartnerEventsSection, PartnerPromosSection } from '../components/home';
 import { AnimatedGlowButton } from '../components/ui/AnimatedGlowButton';
-import { CATEGORIES, getLocalizedCategories } from '../constants/categories';
 import { calculateDistanceKm, formatDistance } from '../services/googleMapsService';
 import { getActivityLocalizedText } from '../services/activityService';
 import { getLocalizedCityName, getLocalizedCityBadge } from '../services/locationService';
@@ -24,8 +24,8 @@ import type { Activity } from '../types';
 
 interface HomeScreenTabProps {
   activities: Activity[];
-  selectedCat: string;
-  onSelectCategory: (catId: string) => void;
+  selectedCat?: string;
+  onSelectCategory?: (catId: string) => void;
   favorites: string[];
   onToggleFavorite: (id: string) => void;
   onSelectActivity: (activity: Activity) => void;
@@ -155,13 +155,7 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>{t('heroQuestion')}</Text>
           <Text style={styles.headerSub}>
-            {location.city === 'Sfax'
-              ? (language === 'fr'
-                  ? 'Découvrez les meilleures activités et sorties à Sfax et ses environs 📍'
-                  : language === 'en'
-                  ? 'Discover the best activities and outings in Sfax and nearby 📍'
-                  : 'اكتشف أفضل أنشطة وخروجات صفاقس والمناطق القريبة 📍')
-              : t('heroSub')}
+            {location.city === 'Sfax' ? t('sfaxHeroSub') : t('heroSub')}
           </Text>
         </View>
 
@@ -186,30 +180,44 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
         </View>
       </View>
 
-      {/* Categories Horizontal Slider */}
+      {/* 🎤 Section Événements & Soirées (Partenaires Premium) */}
+      <PartnerEventsSection
+        activities={localizedActivities}
+        onSelectActivity={(act) => onSelectActivity(act as any)}
+      />
+
+      {/* 🏷️ Section Bons Plans & Promos (Partenaires Pro) */}
+      <PartnerPromosSection
+        activities={localizedActivities}
+        onSelectActivity={(act) => onSelectActivity(act as any)}
+      />
+
+      {/* Activités en défilement horizontal (2 cartes visibles, scroll horizontal) */}
       <View style={styles.sectionContainer}>
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t('whatToDo')}</Text>
-          <Text style={[styles.seeAll, { color: theme.primary }]}>{t('seeAll')}</Text>
+          <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
+            {language === 'ar' ? 'أفضل الأنشطة' : language === 'fr' ? 'À la une' : 'Trending'}
+          </Text>
+          <Text style={[styles.seeAll, { color: theme.primary }]}>
+            {localizedActivities.length} {language === 'ar' ? 'نشاط' : 'sorties'}
+          </Text>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catList}>
-          {getLocalizedCategories(language).map((cat) => {
-            const isSelected = selectedCat === cat.id;
-            return (
-              <TouchableOpacity
-                key={cat.id}
-                onPress={() => onSelectCategory(cat.id)}
-                style={[
-                  styles.catChip,
-                  { backgroundColor: isSelected ? theme.primary : theme.cardBg, borderColor: theme.cardBorder },
-                ]}
-              >
-                <Ionicons name={cat.icon as any} size={18} color={isSelected ? '#FFFFFF' : theme.textMain} />
-                <Text style={[styles.catText, { color: isSelected ? '#FFFFFF' : theme.textMain }]}>{cat.name}</Text>
-              </TouchableOpacity>
-            );
-          })}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalCardList}
+        >
+          {localizedActivities.map((act) => (
+            <CompactActivityCard
+              key={`compact-${act.id}`}
+              activity={act as any}
+              theme={theme}
+              isFavorite={favorites.includes(act.id)}
+              onPress={() => onSelectActivity(act as any)}
+              onToggleFavorite={() => onToggleFavorite(act.id)}
+            />
+          ))}
         </ScrollView>
       </View>
 
@@ -218,13 +226,7 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
         <View style={styles.sectionHeader}>
           <Text style={[styles.sectionTitle, { color: theme.textMain }]}>{t('nearbyActivities')}</Text>
           <Text style={[styles.locationSub, { color: theme.textMuted }]}>
-            {location.city === 'Sfax'
-              ? (language === 'fr'
-                  ? 'Sfax et ses environs'
-                  : language === 'en'
-                  ? 'Sfax & Nearby'
-                  : 'صفاقس وما جاورها')
-              : getLocalizedCityName(location.city, language)}
+            {location.city === 'Sfax' ? t('sfaxNearby') : getLocalizedCityName(location.city, language)}
           </Text>
         </View>
 
@@ -259,7 +261,7 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
                 <Ionicons name="close" size={20} color={theme.textMain} />
               </TouchableOpacity>
               <Text style={[styles.modalTitle, { color: theme.textMain }]}>
-                {language === 'fr' ? 'Choisissez votre ville 📍' : language === 'en' ? 'Select your city 📍' : 'اختر مدينتك 📍'}
+                {t('chooseCity')}
               </Text>
             </View>
 
@@ -280,20 +282,12 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
                 <Ionicons name="locate" size={20} color={theme.primary} />
               )}
               <Text style={[styles.gpsActionText, { color: theme.primary }]}>
-                {language === 'fr'
-                  ? 'Me localiser précisément via GPS'
-                  : language === 'en'
-                  ? 'Locate me precisely via GPS'
-                  : 'تحديد موقعي بدقة عبر الـ GPS'}
+                {t('locateGps')}
               </Text>
             </TouchableOpacity>
 
             <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
-              {language === 'fr'
-                ? 'Phase de lancement : Sfax est la ville active principale'
-                : language === 'en'
-                ? 'Launch phase: Sfax is the primary active city'
-                : 'مرحلة الإطلاق: صفاقس هي المدينة النشطة الرئيسية'}
+              {t('launchPhaseSfax')}
             </Text>
 
             {/* City Selection List */}
@@ -530,21 +524,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  catList: {
-    gap: 10,
-  },
-  catChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  catText: {
-    fontSize: 14,
-    fontWeight: '800',
+  horizontalCardList: {
+    paddingRight: 16,
+    gap: 12,
   },
   modalBackdrop: {
     flex: 1,

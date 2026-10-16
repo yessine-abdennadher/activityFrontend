@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useTranslation } from '../hooks/useTranslation';
@@ -15,10 +15,13 @@ export const SplashScreen: React.FC<SplashScreenProps> = ({ onNavigate }) => {
   return (
     <View style={[styles.splash, { backgroundColor: theme.primary }]}>
       <View style={styles.splashLogoWrap}>
-        <Ionicons name="sparkles" size={56} color="#FFFFFF" />
+        <Image
+          source={require('../assets/logo.png')}
+          style={{ width: 80, height: 80, resizeMode: 'contain' }}
+        />
       </View>
-      <Text style={styles.splashTitle}>MCHINA</Text>
-      <Text style={styles.splashTagline}>شنوّة نعمل توّا؟</Text>
+      <Text style={styles.splashTitle}>WIN</Text>
+      <Text style={styles.splashTagline}>{t('tagline')}</Text>
       <Text style={styles.splashSub}>{t('subtitle')}</Text>
       <TouchableOpacity
         style={styles.splashButton}
@@ -43,10 +46,14 @@ const styles = StyleSheet.create({
     width: 110,
     height: 110,
     borderRadius: 55,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
   },
   splashTitle: {
     color: '#FFFFFF',

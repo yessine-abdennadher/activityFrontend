@@ -7,6 +7,7 @@ import type {
   AdminUsersResponse,
   AdminActivitiesResponse,
   UserRole,
+  PartnerTier,
 } from '../types';
 
 function getHeaders(): HeadersInit {
@@ -198,3 +199,61 @@ export async function deleteActivityByAdmin(activityId: string): Promise<boolean
 
   return true;
 }
+
+/**
+ * Récupérer les données de diagnostic et d'activité des partenaires
+ */
+export async function fetchAdminDiagnostics(): Promise<any> {
+  const url = `${getApiBaseUrl()}/admin/diagnostics`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Impossible de récupérer les diagnostics administrateur.');
+  }
+
+  return data.diagnostics;
+}
+
+/**
+ * Modifier le niveau / tier d'un partenaire (standard ou pro)
+ */
+export async function updatePartnerTier(partnerId: string, tier: PartnerTier): Promise<AdminUser> {
+  const url = `${getApiBaseUrl()}/admin/partners/${partnerId}/tier`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify({ tier }),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Impossible de modifier le tier du partenaire.');
+  }
+
+  return data.partner;
+}
+
+/**
+ * Activer ou désactiver le mode alerte électricité globale au niveau de la plateforme
+ */
+export async function toggleGlobalElectricityMode(active: boolean): Promise<{ success: boolean; electricityAlertActive: boolean }> {
+  const url = `${getApiBaseUrl()}/admin/electricity-mode`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify({ active }),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Impossible de modifier le mode électricité globale.');
+  }
+
+  return data;
+}
+
+

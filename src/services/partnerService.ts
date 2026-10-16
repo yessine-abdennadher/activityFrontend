@@ -92,3 +92,85 @@ export async function deletePartnerActivity(activityId: string): Promise<boolean
 
   return true;
 }
+
+/**
+ * Basculer le mode électricité / lumière garantie en direct
+ */
+export async function togglePartnerPowerMode(
+  activityId: string,
+  powerBackupMode: boolean
+): Promise<PartnerActivityItem> {
+  const url = `${getApiBaseUrl()}/activities/partner/${activityId}/power-mode`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify({ powerBackupMode }),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Impossible de modifier le mode électricité / lumière.');
+  }
+
+  return data.activity;
+}
+
+/**
+ * Configurer une promotion exclusive (Réservé Partenaire Pro)
+ */
+export async function updatePartnerPromotion(
+  activityId: string,
+  promotion: {
+    isPromo: boolean;
+    promoType?: 'all' | 'item';
+    discountPercent: number;
+    targetItem?: string;
+    promoLabel: string;
+    validUntil?: string;
+  }
+): Promise<PartnerActivityItem> {
+  const url = `${getApiBaseUrl()}/activities/partner/${activityId}/promotion`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: getHeaders(),
+    body: JSON.stringify(promotion),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || 'Impossible de configurer la promotion.');
+  }
+
+  return data.activity;
+}
+
+/**
+ * Publier un événement spécial / soirée musicale (Réservé Partenaire Pro)
+ */
+export async function addPartnerEvent(
+  activityId: string,
+  event: {
+    title: string;
+    image?: string;
+    date?: string;
+    time?: string;
+    description?: string;
+    category?: string;
+    price?: number;
+  }
+): Promise<PartnerActivityItem> {
+  const url = `${getApiBaseUrl()}/activities/partner/${activityId}/events`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: getHeaders(),
+    body: JSON.stringify(event),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || "Impossible d'ajouter l'événement.");
+  }
+
+  return data.activity;
+}
+

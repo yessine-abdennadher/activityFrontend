@@ -4,7 +4,7 @@
  * En cas d'échec réseau, repli gracieux sur les données locales (mockData).
  */
 
-import { API_BASE_URL } from './apiConfig';
+import { getApiBaseUrl, getFallbackApiUrls, setApiBaseUrl } from './apiConfig';
 import { getAuthToken, refreshAccessToken } from './authService';
 import type { Activity, Category } from '../types';
 import { CATEGORIES, LocalizedCategory, setDynamicCategories } from '../constants/categories';
@@ -30,14 +30,6 @@ function buildHeaders(requiresAuth = false): HeadersInit {
   return headers;
 }
 
-let activeBaseUrl = API_BASE_URL;
-
-const FALLBACK_URLS = [
-  API_BASE_URL,
-  'http://10.0.2.2:5000/api',
-  'http://localhost:5000/api',
-];
-
 /**
  * Requête HTTP générique avec basculement automatique d'hôte et gestion de l'expiration du token.
  */
@@ -47,6 +39,7 @@ async function apiFetch(
   requiresAuth = false
 ): Promise<Response> {
   const headers = buildHeaders(requiresAuth);
+  let activeBaseUrl = getApiBaseUrl();
 
   // Essayer d'abord avec l'URL active connue
   try {
@@ -64,15 +57,16 @@ async function apiFetch(
     }
     return response;
   } catch (err) {
-    // Si la connexion a échoué (erreur réseau / hôte injoignable), tester les autres hôtes
-    for (const candidate of FALLBACK_URLS) {
+    // Si la connexion a échoué (erreur réseau / hôte injoignable), tester les autres hôtes de secours
+    const fallbacks = getFallbackApiUrls();
+    for (const candidate of fallbacks) {
       if (candidate === activeBaseUrl) continue;
       try {
         const testUrl = `${candidate}${path}`;
         const res = await fetch(testUrl, { ...options, headers });
         if (res.ok || res.status < 500) {
-          activeBaseUrl = candidate;
-          console.log(`[activityService] 🔄 Basculement réussi vers l'hôte opérationnel : ${activeBaseUrl}`);
+          setApiBaseUrl(candidate);
+          console.log(`[activityService] 🔄 Basculement réussi vers l'hôte opérationnel : ${candidate}`);
           return res;
         }
       } catch {
@@ -117,7 +111,7 @@ function mapActivity(raw: Record<string, unknown>): Activity {
     price: (raw.price as number) || 0,
     duration: (raw.duration as string) || (raw.durationMinutes ? `${raw.durationMinutes} min` : '1h'),
     distance: distStr,
-    rating: (raw.rating as number) || 4.5,
+    rating: (raw.reviewsCount && Number(raw.reviewsCount) > 0) ? Number(raw.rating || 0) : (raw.rating !== undefined && Number(raw.reviewsCount) !== 0 ? Number(raw.rating) : 0),
     image: (raw.image as string) || (raw.imageUrl as string) || 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80',
     description: (raw.description as string) || '',
     descriptionAr: (raw.descriptionAr as string) || (raw.description as string),
@@ -152,6 +146,8 @@ function mapActivity(raw: Record<string, unknown>): Activity {
     isOpenNow: raw.isOpenNow !== undefined ? Boolean(raw.isOpenNow) : true,
     phone: (raw.phone as string) || '+216 74 200 100',
     whatsapp: (raw.whatsapp as string) || (raw.phone as string) || '+216 98 200 100',
+    events: Array.isArray(raw.events) ? (raw.events as any) : undefined,
+    promotion: raw.promotion ? (raw.promotion as any) : undefined,
   };
 }
 
@@ -791,7 +787,7 @@ export async function getActivities(filters: ActivityFilters = {}): Promise<Acti
     if (filters.search) params.set('search', filters.search);
 
     const query = params.toString() ? `?${params.toString()}` : '';
-    console.log(`[activityService] 🚀 Envoi requête GET ${API_BASE_URL}/activities${query}...`);
+    console.log(`[activityService] 🚀 Envoi requête GET ${getApiBaseUrl()}/activities${query}...`);
 
     const response = await apiFetch(`/activities${query}`, { method: 'GET' });
 
@@ -1036,6 +1032,7 @@ export type FacebookReactionType = 'like' | 'love' | 'haha' | 'wow' | 'sad' | 'a
 export interface ReviewReaction {
   user: string;
   userName: string;
+  userAvatar?: string;
   type: FacebookReactionType;
 }
 
@@ -1179,4 +1176,55 @@ export async function reactToActivityReview(
     userReaction: payload.userReaction,
   };
 }
+
+/**
+ * Récupère le statut des options globales (ex: Mode alerte électricité déclenché par l'admin)
+ */
+export async function fetchSystemStatus(): Promise<{ electricityAlertActive: boolean }> {
+  try {
+    const response = await apiFetch('/activities/system-status', { method: 'GET' });
+    const payload = await response.json();
+    return {
+      electricityAlertActive: Boolean(payload.electricityAlertActive),
+    };
+  } catch (err) {
+    return { electricityAlertActive: false };
+  }
+}
+
+/**
+ * Signalement communautaire par un simple utilisateur : confirme la présence de lumière ou une coupure
+ */
+export async function reportActivityPowerStatus(
+  activityId: string,
+  hasPower: boolean
+): Promise<{
+  yesVotes: number;
+  noVotes: number;
+  lastReportAt?: string | null;
+  lastReportStatus?: 'light_on' | 'light_off' | null;
+  userVote?: 'yes' | 'no' | null;
+  message?: string;
+}> {
+  const response = await apiFetch(
+    `/activities/${activityId}/power-report`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ hasPower }),
+    },
+    true
+  );
+
+  const payload = await response.json();
+  if (!response.ok || !payload.success) {
+    throw new Error(payload.message || 'Impossible d\'enregistrer votre signalement.');
+  }
+
+  return {
+    ...payload.powerReports,
+    message: payload.message,
+  };
+}
+
+
 

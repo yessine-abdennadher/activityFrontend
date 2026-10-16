@@ -17,6 +17,8 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AppPreferencesProvider, usePreferences } from './src/context/AppPreferencesContext';
 import { LocationProvider } from './src/context/LocationContext';
+import { ToastProvider } from './src/context/ToastContext';
+import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
 import { useTranslation } from './src/hooks/useTranslation';
 import { ActivityCard } from './src/components/ActivityCard';
 import { FloatingTabBar } from './src/components/FloatingTabBar';
@@ -26,6 +28,7 @@ import ActivityDetailsScreen from './src/screens/ActivityDetailsScreen';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
+import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { RecommendationFlowScreen, type RecommendationFilters } from './src/screens/RecommendationFlowScreen';
 import { RecommendationResultsScreen } from './src/screens/RecommendationResultsScreen';
 import { MapScreen } from './src/screens/MapScreen';
@@ -36,43 +39,13 @@ import { useActivities } from './src/hooks/useActivities';
 import type { Activity, AuthUser } from './src/types';
 import { logout as authLogout, restoreSession } from './src/services/authService';
 import { getUserFavorites, toggleActivityFavorite, localizeActivity } from './src/services/activityService';
-
-function getMockNotifications(lang: string) {
-  return [
-    {
-      id: 'notif-1',
-      title: lang === 'fr' ? 'Offre spéciale Sfax ! 🎳' : lang === 'en' ? 'Special Deal in Sfax! 🎳' : 'عرض خاص جديد! 🎳',
-      description: lang === 'fr' ? 'Profitez de 20% de réduction sur le Bowling Mall of Sfax ce week-end.' : lang === 'en' ? 'Enjoy 20% off Bowling Mall of Sfax this weekend.' : 'خصم 20% على تذاكر بولينغ مول أوف صفاقس نهاية هذا الأسبوع.',
-      time: lang === 'fr' ? 'Il y a 10 min' : lang === 'en' ? '10 min ago' : 'منذ 10 دقائق',
-      read: false,
-      icon: 'pricetag-outline',
-      color: '#EC4899',
-    },
-    {
-      id: 'notif-2',
-      title: lang === 'fr' ? 'Nouvelle aventure à Sfax 🎯' : lang === 'en' ? 'New Adventure in Sfax 🎯' : 'نشاط جديد ومميز في صفاقس 🎯',
-      description: lang === 'fr' ? 'Découvrez la nouvelle salle Escape Room Sfax avec des énigmes immersives.' : lang === 'en' ? 'Discover the new Escape Room Sfax with immersive puzzles.' : 'اكتشف قاعة Escape Room Sfax بأحدث الألغاز التفاعلية الشيقة.',
-      time: lang === 'fr' ? 'Il y a 2 h' : lang === 'en' ? '2 hrs ago' : 'منذ ساعتين',
-      read: false,
-      icon: 'sparkles-outline',
-      color: '#A855F7',
-    },
-    {
-      id: 'notif-3',
-      title: lang === 'fr' ? 'Rappel d’escapade ⏱️' : lang === 'en' ? 'Outing Reminder ⏱️' : 'تذكير بموعد النشاط ⏱️',
-      description: lang === 'fr' ? 'Votre sortie détente au Café Diwan Médina commence cet après-midi.' : lang === 'en' ? 'Your visit to Café Diwan Medina starts this afternoon.' : 'جلستك في مقهى الديوان بالمدينة العتيقة تبدأ بعد الزوال.',
-      time: lang === 'fr' ? 'Hier' : lang === 'en' ? 'Yesterday' : 'منذ يوم واحد',
-      read: true,
-      icon: 'time-outline',
-      color: '#3B82F6',
-    },
-  ];
-}
+import { trackSessionStart, trackScreenView } from './src/services/telemetryService';
 
 function MainContent({ currentUser, onLogout }: { currentUser: AuthUser | null; onLogout: () => void }) {
   const { isDark, theme, toggleDarkMode, language, setLanguage } = usePreferences();
   const { t } = useTranslation();
   const { activities } = useActivities();
+  const { unreadCount } = useNotifications();
   const [activeTab, setActiveTab] = useState<'home' | 'explore' | 'favorites' | 'profile' | 'notifications'>('home');
   const [selectedCat, setSelectedCat] = useState('fun');
   const [exploreQuery, setExploreQuery] = useState('');
@@ -84,17 +57,34 @@ function MainContent({ currentUser, onLogout }: { currentUser: AuthUser | null; 
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [recommendationScreen, setRecommendationScreen] = useState<'idle' | 'flow' | 'results'>('idle');
   const [recommendationFilters, setRecommendationFilters] = useState<RecommendationFilters>({});
-  const [notificationsList, setNotificationsList] = useState(() => getMockNotifications(language));
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationServicesEnabled, setLocationServicesEnabled] = useState(true);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [adminDashboardVisible, setAdminDashboardVisible] = useState(false);
   const [partnerDashboardVisible, setPartnerDashboardVisible] = useState(false);
 
-  // Sync notifications language when user switches language
+  // Télémétrie : suivi de la session et des écrans visités
   useEffect(() => {
-    setNotificationsList(getMockNotifications(language));
-  }, [language]);
+    trackSessionStart();
+  }, []);
+
+  useEffect(() => {
+    if (adminDashboardVisible) {
+      trackScreenView('admin_dashboard');
+    } else if (partnerDashboardVisible) {
+      trackScreenView('partner_dashboard');
+    } else if (selectedActivity) {
+      trackScreenView('activity_details', { activityId: selectedActivity.id });
+    } else if (recommendationScreen === 'flow') {
+      trackScreenView('recommendation_flow');
+    } else if (recommendationScreen === 'results') {
+      trackScreenView('recommendation_results');
+    } else if (mapVisible) {
+      trackScreenView('interactive_map');
+    } else {
+      trackScreenView(`tab_${activeTab}`);
+    }
+  }, [activeTab, adminDashboardVisible, partnerDashboardVisible, selectedActivity, recommendationScreen, mapVisible]);
 
   // Gestion du bouton retour matériel Android pour une navigation fluide
   useEffect(() => {
@@ -190,17 +180,11 @@ function MainContent({ currentUser, onLogout }: { currentUser: AuthUser | null; 
       console.warn('[App] Synchronisation du favori avec MongoDB échouée, état local conservé:', err);
     }
   };
-
-  const markAllAsRead = () => {
-    setNotificationsList(notificationsList.map((n) => ({ ...n, read: true })));
-  };
-
-  const unreadCount = notificationsList.filter((n) => !n.read).length;
   const exploreResults = localizedActivities.filter((activity) => {
     const queryMatches = !exploreQuery || `${activity.name} ${activity.city} ${activity.category} ${activity.description}`.toLocaleLowerCase().includes(exploreQuery.toLocaleLowerCase());
     const categoryMatches = !exploreCategory || activity.category === exploreCategory;
     const budgetMatches = !exploreBudget || (exploreBudget === '30' ? activity.price <= 30 : exploreBudget === '10' ? activity.price <= 10 : true);
-    const distanceMatches = !exploreDistance || (exploreDistance === '5' ? activity.distanceKm <= 5 : exploreDistance === '10' ? activity.distanceKm <= 10 : true);
+    const distanceMatches = !exploreDistance || (activity.distanceKm !== undefined && (exploreDistance === '5' ? activity.distanceKm <= 5 : exploreDistance === '10' ? activity.distanceKm <= 10 : true));
     return queryMatches && categoryMatches && budgetMatches && distanceMatches;
   });
 
@@ -345,46 +329,13 @@ function MainContent({ currentUser, onLogout }: { currentUser: AuthUser | null; 
 
         {/* Screen 4: Notifications Screen */}
         {activeTab === 'notifications' && (
-          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            <View style={{ padding: 20 }}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <Text style={[styles.screenTitle, { color: theme.textMain }]}>{t('notificationsTitle')}</Text>
-                {unreadCount > 0 && (
-                  <TouchableOpacity onPress={markAllAsRead}>
-                    <Text style={{ color: theme.primary, fontWeight: '700', fontSize: 13 }}>{t('markAllRead')}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              <View style={{ gap: 14 }}>
-                {notificationsList.map((notif) => (
-                  <View
-                    key={notif.id}
-                    style={[
-                      styles.notifCard,
-                      {
-                        backgroundColor: theme.cardBg,
-                        borderColor: notif.read ? theme.cardBorder : theme.primary,
-                        borderWidth: notif.read ? 1 : 2,
-                      },
-                    ]}
-                  >
-                    <View style={[styles.notifIconBox, { backgroundColor: notif.color + '20' }]}>
-                      <Ionicons name={notif.icon as any} size={22} color={notif.color} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text style={[styles.notifTitle, { color: theme.textMain }]}>{notif.title}</Text>
-                        {!notif.read && <View style={styles.unreadBadge} />}
-                      </View>
-                      <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4, lineHeight: 1.4 }}>{notif.description}</Text>
-                      <Text style={{ color: theme.textSub, fontSize: 11, marginTop: 8 }}>{notif.time}</Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </ScrollView>
+          <NotificationsScreen
+            currentUser={currentUser}
+            activities={localizedActivities as any}
+            onSelectActivity={(act) => setSelectedActivity(act)}
+            onOpenPartnerDashboard={() => setPartnerDashboardVisible(true)}
+            onOpenAdminDashboard={() => setAdminDashboardVisible(true)}
+          />
         )}
 
         {/* Screen 5: Profile & Parameters Screen */}
@@ -573,7 +524,7 @@ function MainContent({ currentUser, onLogout }: { currentUser: AuthUser | null; 
         )}
 
         {/* ALWAYS VISIBLE FLOATING BOTTOM TAB BAR */}
-        <FloatingTabBar activeTab={activeTab} theme={theme} onTabChange={setActiveTab} />
+        <FloatingTabBar activeTab={activeTab} theme={theme} onTabChange={setActiveTab} notificationsCount={unreadCount} />
       </>}
 
       {/* Modal de confirmation de déconnexion moderne & multi-plateforme */}
@@ -657,13 +608,16 @@ export default function App() {
     <SafeAreaProvider>
       <AppPreferencesProvider>
         <LocationProvider>
-          <IntroGate currentUser={currentUser} onAuthSuccess={setCurrentUser} onLogout={handleLogout} />
+          <ToastProvider>
+            <NotificationProvider>
+              <IntroGate currentUser={currentUser} onAuthSuccess={setCurrentUser} onLogout={handleLogout} />
+            </NotificationProvider>
+          </ToastProvider>
         </LocationProvider>
       </AppPreferencesProvider>
     </SafeAreaProvider>
   );
 }
-
 
 function IntroGate({
   currentUser,
@@ -676,11 +630,25 @@ function IntroGate({
 }) {
   const [screen, setScreen] = useState<'splash' | 'onboarding' | 'auth' | 'app'>('splash');
 
+  // Si l'utilisateur est connecté (session restaurée ou login réussi), aller directement à l'application
+  if (currentUser) {
+    return (
+      <MainContent
+        currentUser={currentUser}
+        onLogout={() => {
+          onLogout();
+          setScreen('auth');
+        }}
+      />
+    );
+  }
+
+  // Si l'utilisateur n'est pas connecté, afficher splash ou onboarding lors du premier lancement
   if (screen === 'splash') {
     return (
       <SplashScreen
         onNavigate={(next: string) =>
-          setScreen(next === 'onboarding' ? 'onboarding' : currentUser ? 'app' : 'auth')
+          setScreen(next === 'onboarding' ? 'onboarding' : 'auth')
         }
       />
     );
@@ -689,28 +657,16 @@ function IntroGate({
   if (screen === 'onboarding') {
     return (
       <OnboardingScreen
-        onNavigate={() => setScreen(currentUser ? 'app' : 'auth')}
-      />
-    );
-  }
-
-  if (!currentUser || screen === 'auth') {
-    return (
-      <AuthScreen
-        onSuccess={(user) => {
-          onAuthSuccess(user);
-          setScreen('app');
-        }}
+        onNavigate={() => setScreen('auth')}
       />
     );
   }
 
   return (
-    <MainContent
-      currentUser={currentUser}
-      onLogout={() => {
-        onLogout();
-        setScreen('auth');
+    <AuthScreen
+      onSuccess={(user) => {
+        onAuthSuccess(user);
+        setScreen('app');
       }}
     />
   );

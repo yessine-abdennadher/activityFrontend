@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useTranslation } from '../hooks/useTranslation';
@@ -7,16 +7,6 @@ import { useTranslation } from '../hooks/useTranslation';
 interface OnboardingScreenProps {
   onNavigate: (screen: string) => void;
 }
-
-const ONBOARDING_SLIDES: Array<{
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  desc: string;
-}> = [
-  { icon: 'restaurant-outline', title: 'Restaurant, café, plage…', desc: 'Trouve la sortie parfaite selon ton envie du moment · لقى الخرجة اللي تحبها.' },
-  { icon: 'people-outline', title: 'Seul, en couple, entre amis', desc: 'Adapte chaque sortie à ton profil et ton budget · كيّف كل خرجة مع بجتك.' },
-  { icon: 'location-outline', title: 'Près de chez toi', desc: 'Les meilleures activités de Tunisie à portée de main · أحسن الأنشطة قريبة منك.' },
-];
 
 const StepProgress: React.FC<{ current: number; total: number; color: string }> = ({ current, total, color }) => (
   <View style={styles.stepProgress}>
@@ -39,34 +29,49 @@ export const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onNavigate }
   const { theme } = usePreferences();
   const { t } = useTranslation();
   const [slide, setSlide] = useState(0);
-  const current = ONBOARDING_SLIDES[slide];
+
+  const slides: Array<{
+    icon: keyof typeof Ionicons.glyphMap;
+    title: string;
+    desc: string;
+  }> = [
+    { icon: 'restaurant-outline', title: t('slide1Title'), desc: t('slide1Desc') },
+    { icon: 'people-outline', title: t('slide2Title'), desc: t('slide2Desc') },
+    { icon: 'location-outline', title: t('slide3Title'), desc: t('slide3Desc') },
+  ];
+
+  const current = slides[slide];
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
       <View style={styles.onboarding}>
+        <Image
+          source={require('../assets/logo.png')}
+          style={{ width: 56, height: 56, resizeMode: 'contain', marginBottom: 24 }}
+        />
         <View style={[styles.bigIcon, { backgroundColor: theme.bgSecondary }]}>
           <Ionicons name={current.icon} size={52} color={theme.primary} />
         </View>
         <Text style={[styles.bigTitle, { color: theme.textMain }]}>{current.title}</Text>
         <Text style={[styles.bigDesc, { color: theme.textMuted }]}>{current.desc}</Text>
 
-        <StepProgress current={slide} total={ONBOARDING_SLIDES.length} color={theme.primary} />
+        <StepProgress current={slide} total={slides.length} color={theme.primary} />
 
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: theme.primary }]}
-          onPress={() => (slide < ONBOARDING_SLIDES.length - 1 ? setSlide(slide + 1) : onNavigate('home'))}
+          onPress={() => (slide < slides.length - 1 ? setSlide(slide + 1) : onNavigate('home'))}
         >
           <Ionicons
-            name={slide < ONBOARDING_SLIDES.length - 1 ? 'arrow-forward' : 'checkmark-circle-outline'}
+            name={slide < slides.length - 1 ? 'arrow-forward' : 'checkmark-circle-outline'}
             size={18}
             color="#FFF"
           />
-          <Text style={styles.primaryText}>{slide < ONBOARDING_SLIDES.length - 1 ? t('next') : t('finish')}</Text>
+          <Text style={styles.primaryText}>{slide < slides.length - 1 ? t('next') : t('finish')}</Text>
         </TouchableOpacity>
 
-        {slide < ONBOARDING_SLIDES.length - 1 && (
+        {slide < slides.length - 1 && (
           <TouchableOpacity onPress={() => onNavigate('home')} style={{ marginTop: 14 }}>
-            <Text style={[styles.skipText, { color: theme.textMuted }]}>Passer</Text>
+            <Text style={[styles.skipText, { color: theme.textMuted }]}>{t('skip')}</Text>
           </TouchableOpacity>
         )}
       </View>

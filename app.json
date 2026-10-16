@@ -1,23 +1,25 @@
 {
   "expo": {
-    "name": "ActivityTN",
-    "slug": "activitytn",
+    "name": "Win",
+    "slug": "win",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/logo.png",
     "splash": {
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
-      "backgroundColor": "#1E1B4B"
+      "backgroundColor": "#F0F7FF"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "tn.activity.app",
+      "bundleIdentifier": "tn.win.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "ActivityTN utilise votre position pour vous recommander les activités et loisirs à proximité."
+        "NSLocationWhenInUseUsageDescription": "Win utilise votre position pour vous recommander les activités et loisirs à proximité."
       }
     },
     "android": {
-      "package": "tn.activity.app",
+      "package": "tn.win.app",
       "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -26,16 +28,17 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static"
+      "output": "single"
     },
     "plugins": [
       "expo-asset",
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "ActivityTN utilise votre position pour vous recommander les activités et loisirs à proximité."
+          "locationWhenInUsePermission": "Win utilise votre position pour vous recommander les activités et loisirs à proximité."
         }
-      ]
+      ],
+      "expo-secure-store"
     ]
   }
 }

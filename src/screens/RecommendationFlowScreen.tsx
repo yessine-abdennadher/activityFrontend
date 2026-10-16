@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StyleSheet, View, Text, ScrollView, TouchableOpacity, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../context/AppPreferencesContext';
+import { useTranslation } from '../hooks/useTranslation';
 
 // ─── Typed filters ────────────────────────────────────────────────────────────
 export interface RecommendationFilters {
@@ -302,6 +303,7 @@ export const RecommendationFlowScreen: React.FC<RecommendationFlowScreenProps> =
   onNavigate,
 }) => {
   const { theme, isDark } = usePreferences();
+  const { t } = useTranslation();
   const [step, setStep] = useState(0);
 
   const current = STEPS[step];
@@ -348,7 +350,7 @@ export const RecommendationFlowScreen: React.FC<RecommendationFlowScreenProps> =
         </View>
 
         <TouchableOpacity onPress={goNext} style={styles.skipActionBtn} activeOpacity={0.7}>
-          <Text style={[styles.skipActionText, { color: theme.textMuted }]}>تجاوز</Text>
+          <Text style={[styles.skipActionText, { color: theme.textMuted }]}>{t('skip')}</Text>
         </TouchableOpacity>
       </View>
 
@@ -424,7 +426,7 @@ export const RecommendationFlowScreen: React.FC<RecommendationFlowScreenProps> =
           activeOpacity={canContinue ? 0.85 : 1}
         >
           <Text style={[styles.continueButtonText, { color: canContinue ? '#FFFFFF' : theme.textMuted }]}>
-            {isLast ? 'اعرضلي الاقتراحات' : 'المرحلة التالية'}
+            {isLast ? t('showRecommendations') : t('nextStep')}
           </Text>
           <Ionicons
             name={isLast ? 'sparkles' : 'arrow-forward'}

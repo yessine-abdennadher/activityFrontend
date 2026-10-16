@@ -68,40 +68,23 @@ export const RecommendationResultsScreen: React.FC<RecommendationResultsScreenPr
     {
       key: 'rating',
       icon: 'star-outline',
-      label: language === 'fr' ? 'Mieux notés' : language === 'en' ? 'Top Rated' : 'الأعلى تقييماً',
+      label: t('topRated'),
     },
     {
       key: 'price',
       icon: 'cash-outline',
-      label: language === 'fr' ? 'Moins cher' : language === 'en' ? 'Cheapest' : 'الأرخص',
+      label: t('cheapest'),
     },
     {
       key: 'distance',
       icon: 'navigate-outline',
-      label: language === 'fr' ? 'Plus proche' : language === 'en' ? 'Nearest' : 'الأقرب إليك',
+      label: t('nearest'),
     },
   ];
 
-  const resultsCountText =
-    language === 'fr'
-      ? `${results.length} sorties correspondantes`
-      : language === 'en'
-      ? `${results.length} matches found`
-      : `${results.length} خرجة مطابقة`;
-
-  const headerTitleText =
-    language === 'fr'
-      ? 'Idées sur-mesure pour vous 🎯'
-      : language === 'en'
-      ? 'Custom ideas for you 🎯'
-      : 'اقتراحات مفصلة ليك 🎯';
-
-  const headerSubtitleText =
-    language === 'fr'
-      ? 'Les meilleures activités correspondant à vos envies à Sfax'
-      : language === 'en'
-      ? 'Top activities matching your preferences in Sfax'
-      : 'أحسن الأنشطة المطابقة لاختياراتك وموقعك بصفاقس';
+  const resultsCountText = `${results.length} ${t('matchesFound')}`;
+  const headerTitleText = t('customIdeasForYou');
+  const headerSubtitleText = t('recommendationResultsSubtitle');
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
@@ -236,7 +219,7 @@ export const RecommendationResultsScreen: React.FC<RecommendationResultsScreenPr
           <View style={{ paddingVertical: 48, alignItems: 'center', justifyContent: 'center' }}>
             <ActivityIndicator size="large" color={theme.primary} />
             <Text style={{ marginTop: 14, color: theme.textMuted, fontSize: 14, fontWeight: '600' }}>
-              جاري حساب التوصيات الذكية من الخادم...
+              {t('calculatingRecommendations')}
             </Text>
           </View>
         ) : results.length > 0 ? (
@@ -246,8 +229,8 @@ export const RecommendationResultsScreen: React.FC<RecommendationResultsScreenPr
                 key={activity.id}
                 activity={activity}
                 isFavorite={favorites.includes(activity.id)}
-                onToggleFavorite={onToggleFavorite}
-                onPress={onSelectActivity}
+                onToggleFavorite={(id) => onToggleFavorite(id || activity.id)}
+                onPress={(act) => onSelectActivity(act || activity)}
               />
             ))}
           </View>
@@ -273,7 +256,7 @@ export const RecommendationResultsScreen: React.FC<RecommendationResultsScreenPr
               {t('noResults')}
             </Text>
             <Text style={[styles.emptyHint, { color: theme.textMuted }]}>
-              جرّب وسّع نطاق المسافة أو غيّر الميزانية باش تلقى اقتراحات أكثر
+              {t('emptyRecommendationHint')}
             </Text>
             <TouchableOpacity
               style={[
@@ -287,7 +270,7 @@ export const RecommendationResultsScreen: React.FC<RecommendationResultsScreenPr
               activeOpacity={0.85}
             >
               <Ionicons name="options-outline" size={18} color="#FFF" />
-              <Text style={styles.modifyFiltersBtnText}>تعديل خيارات البحث</Text>
+              <Text style={styles.modifyFiltersBtnText}>{t('modifySearchFilters')}</Text>
             </TouchableOpacity>
           </View>
         )}

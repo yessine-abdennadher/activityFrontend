@@ -51,17 +51,17 @@ const TabButton: React.FC<{
         toValue: isActive ? -2 : 0,
         tension: 300,
         friction: 20,
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
   }, [isActive]);
 
   const handlePressIn = () => {
-    Animated.spring(scale, { toValue: 0.92, useNativeDriver: true, speed: 50 }).start();
+    Animated.spring(scale, { toValue: 0.92, useNativeDriver: false, speed: 50 }).start();
   };
 
   const handlePressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 10 }).start();
+    Animated.spring(scale, { toValue: 1, useNativeDriver: false, speed: 30, bounciness: 10 }).start();
   };
 
   const pillWidth = activeAnim.interpolate({

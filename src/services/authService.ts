@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from './apiConfig';
+import { getApiBaseUrl, getFallbackApiUrls, setApiBaseUrl } from './apiConfig';
 import { USER_PERMISSIONS } from '../types';
 import type { AuthUser, UserPermission, UserRole, UserType } from '../types';
 import { Storage, STORAGE_KEYS } from './storage';
@@ -72,12 +72,69 @@ async function persistSession(token: string | null, refresh: string | null, user
   await Storage.setJson(STORAGE_KEYS.CURRENT_USER, user);
 }
 
-export async function login(email: string, password: string): Promise<AuthUser> {
+/**
+ * Fetch avec timeout strict pour éviter les blocages infinis
+ */
+async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutMs = 6000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    return res;
+  } catch (err: any) {
+    if (err.name === 'AbortError') {
+      throw new Error(`Délai d'attente dépassé (6s). Le serveur sur ${url} ne répond pas.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Appel API robuste avec bascule automatique entre IP locale et émulateur
+ */
+async function fetchAuthWithFallback(endpoint: string, options: RequestInit = {}): Promise<Response> {
   const baseUrl = getApiBaseUrl();
-  const response = await fetch(`${baseUrl}/auth/login`, {
+  const primaryUrl = `${baseUrl}${endpoint}`;
+
+  try {
+    return await fetchWithTimeout(primaryUrl, options, 6000);
+  } catch (primaryErr: any) {
+    console.warn(`[authService] Échec URL principale (${primaryUrl}):`, primaryErr.message);
+
+    // Fallbacks dynamiques issus de apiConfig.ts (sans IP codée en dur ici)
+    const fallbackUrls = getFallbackApiUrls().filter((url) => `${url}${endpoint}` !== primaryUrl);
+
+    for (const fallbackBase of fallbackUrls) {
+      try {
+        console.log(`[authService] Tentative sur URL de secours: ${fallbackBase}${endpoint}`);
+        const fallbackRes = await fetchWithTimeout(`${fallbackBase}${endpoint}`, options, 5000);
+        if (fallbackRes.ok || fallbackRes.status < 500) {
+          setApiBaseUrl(fallbackBase);
+          return fallbackRes;
+        }
+      } catch {
+        // Essayer le fallback suivant
+      }
+    }
+
+    throw new Error(
+      `Impossible de contacter le backend (${primaryUrl}). Vérifiez que le serveur est démarré et sur le même Wi-Fi.`
+    );
+  }
+}
+
+export async function login(email: string, password: string): Promise<AuthUser> {
+  const normalizedEmail = (email || '').trim().toLowerCase();
+  const response = await fetchAuthWithFallback('/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email: normalizedEmail, password: password?.trim() }),
   });
 
   const payload = await response.json();
@@ -100,8 +157,7 @@ export async function register(
   role: UserRole = 'user',
   establishmentName: string = ''
 ): Promise<AuthUser> {
-  const baseUrl = getApiBaseUrl();
-  const response = await fetch(`${baseUrl}/auth/register`, {
+  const response = await fetchAuthWithFallback('/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email, password, role, establishmentName }),
@@ -109,7 +165,7 @@ export async function register(
 
   const payload = await response.json();
   if (!response.ok) {
-    throw new Error(payload.message || 'Erreur lors de l inscription.');
+    throw new Error(payload.message || "Erreur lors de l'inscription.");
   }
 
   const token = payload.accessToken || payload.token;
@@ -128,8 +184,7 @@ export async function loginWithGoogle(googleData: {
   avatar?: string;
   googleId?: string;
 }): Promise<AuthUser> {
-  const baseUrl = getApiBaseUrl();
-  const response = await fetch(`${baseUrl}/auth/google`, {
+  const response = await fetchAuthWithFallback('/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(googleData),
@@ -168,7 +223,7 @@ export async function refreshAccessToken(): Promise<string | null> {
     accessToken = payload.accessToken;
     if (payload.refreshToken) {
       refreshToken = payload.refreshToken;
-      await Storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+      await Storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, payload.refreshToken);
     }
     if (accessToken) {
       await Storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);

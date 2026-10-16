@@ -5,6 +5,7 @@
  */
 
 import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
 class MemoryStorage {
   private cache = new Map<string, string>();
@@ -31,36 +32,49 @@ const memoryFallback = new MemoryStorage();
 export const Storage = {
   async getItem(key: string): Promise<string | null> {
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(key);
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          return window.localStorage.getItem(key);
+        }
+        return memoryFallback.getItem(key);
       }
-      return memoryFallback.getItem(key);
+      // Sur iOS & Android : Stockage matériel chiffré (Keychain / Keystore)
+      return await SecureStore.getItemAsync(key);
     } catch (err) {
-      console.warn(`[Storage] Erreur lecture ${key}:`, err);
+      console.warn(`[Storage] Erreur lecture sécurisée ${key}:`, err);
       return memoryFallback.getItem(key);
     }
   },
 
   async setItem(key: string, value: string): Promise<void> {
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(key, value);
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(key, value);
+        }
+        memoryFallback.setItem(key, value);
+        return;
       }
-      memoryFallback.setItem(key, value);
+      // Sur iOS & Android : Écriture chiffrée
+      await SecureStore.setItemAsync(key, value);
     } catch (err) {
-      console.warn(`[Storage] Erreur écriture ${key}:`, err);
+      console.warn(`[Storage] Erreur écriture sécurisée ${key}:`, err);
       memoryFallback.setItem(key, value);
     }
   },
 
   async removeItem(key: string): Promise<void> {
     try {
-      if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem(key);
+      if (Platform.OS === 'web') {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.removeItem(key);
+        }
+        memoryFallback.removeItem(key);
+        return;
       }
-      memoryFallback.removeItem(key);
+      await SecureStore.deleteItemAsync(key);
     } catch (err) {
-      console.warn(`[Storage] Erreur suppression ${key}:`, err);
+      console.warn(`[Storage] Erreur suppression sécurisée ${key}:`, err);
       memoryFallback.removeItem(key);
     }
   },
