@@ -1,30 +1,27 @@
-import { useEffect, useState } from 'react';
-import { getActivities, getCategories } from '../services/activityService';
+import { useQuery } from '@tanstack/react-query';
+import { getActivities, getCategories, type ActivityFilters } from '../services/activityService';
 import type { Activity, Category } from '../types';
 
-export function useActivities() {
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export function useActivities(filters?: ActivityFilters) {
+  const activitiesQuery = useQuery({
+    queryKey: ['activities', filters || {}],
+    queryFn: () => getActivities(filters),
+    staleTime: 1000 * 60 * 10, // 10 minutes
+  });
 
-  useEffect(() => {
-    let active = true;
+  const categoriesQuery = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
+    staleTime: 1000 * 60 * 60, // 1 heure
+  });
 
-    Promise.all([getActivities(), getCategories()])
-      .then(([nextActivities, nextCategories]) => {
-        if (!active) return;
-        console.log(`[useActivities] 📱 Mise à jour du state : ${nextActivities.length} activités injectées dans l'interface.`);
-        setActivities(nextActivities);
-        setCategories(nextCategories);
-      })
-      .finally(() => {
-        if (active) setIsLoading(false);
-      });
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  return { activities, categories, isLoading };
+  return {
+    activities: (activitiesQuery.data ?? []) as Activity[],
+    categories: (categoriesQuery.data ?? []) as Category[],
+    isLoading: activitiesQuery.isLoading || categoriesQuery.isLoading,
+    isRefetching: activitiesQuery.isRefetching,
+    refetchActivities: activitiesQuery.refetch,
+    refetchCategories: categoriesQuery.refetch,
+    isError: activitiesQuery.isError || categoriesQuery.isError,
+  };
 }

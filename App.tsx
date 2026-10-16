@@ -19,6 +19,9 @@ import { AppPreferencesProvider, usePreferences } from './src/context/AppPrefere
 import { LocationProvider } from './src/context/LocationContext';
 import { ToastProvider } from './src/context/ToastContext';
 import { NotificationProvider, useNotifications } from './src/context/NotificationContext';
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
+import { queryClient, asyncStoragePersister } from './src/lib/queryClient';
+import { OfflineBanner } from './src/components/ui/OfflineBanner';
 import { useTranslation } from './src/hooks/useTranslation';
 import { ActivityCard } from './src/components/ActivityCard';
 import { FloatingTabBar } from './src/components/FloatingTabBar';
@@ -349,15 +352,21 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <AppPreferencesProvider>
-        <LocationProvider>
-          <ToastProvider>
-            <NotificationProvider>
-              <IntroGate currentUser={currentUser} onAuthSuccess={setCurrentUser} onLogout={handleLogout} />
-            </NotificationProvider>
-          </ToastProvider>
-        </LocationProvider>
-      </AppPreferencesProvider>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister: asyncStoragePersister }}
+      >
+        <AppPreferencesProvider>
+          <LocationProvider>
+            <ToastProvider>
+              <NotificationProvider>
+                <OfflineBanner />
+                <IntroGate currentUser={currentUser} onAuthSuccess={setCurrentUser} onLogout={handleLogout} />
+              </NotificationProvider>
+            </ToastProvider>
+          </LocationProvider>
+        </AppPreferencesProvider>
+      </PersistQueryClientProvider>
     </SafeAreaProvider>
   );
 }
