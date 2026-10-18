@@ -36,6 +36,9 @@ import { PartnerProEventModal } from '../components/partner/PartnerProEventModal
 import { PartnerTierStatusCard } from '../components/partner/PartnerTierStatusCard';
 import { PartnerUpgradeModal } from '../components/partner/PartnerUpgradeModal';
 import { fetchCurrentUserProfile } from '../services/authService';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadImage } from '../services/uploadService';
+import { queryClient } from '../lib/queryClient';
 import type { PartnerTier } from '../types';
 
 interface PartnerDashboardScreenProps {
@@ -70,6 +73,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   const [submitting, setSubmitting] = useState(false);
 
   // Formulaire
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formName, setFormName] = useState('');
   const [formCategory, setFormCategory] = useState('food');
   const [formCity, setFormCity] = useState(currentUser?.city || 'Sfax');
@@ -167,7 +171,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
     setFormCategory('food');
     setFormCity(currentUser?.city || 'Sfax');
     setFormPrice('25');
-    setFormImageUrl('https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=800');
+    setFormImageUrl('');
     setFormPhone('+216 74 123 456');
     setFormWhatsapp('+216 98 123 456');
     setFormDescription('Découvrez nos spécialités gourmandes, cadre chaleureux et service soigné.');
@@ -197,6 +201,61 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
     setModalVisible(true);
   };
 
+  const handlePickImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission requise',
+          'Veuillez autoriser l’accès à vos photos pour pouvoir sélectionner et uploader une image pour votre offre.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (!asset.base64) {
+          Alert.alert('Erreur', 'Impossible de récupérer les données base64 de l’image sélectionnée.');
+          return;
+        }
+
+        setUploadingImage(true);
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const base64Data = `data:${mimeType};base64,${asset.base64}`;
+
+        const uploadRes = await uploadImage(base64Data, 'activities');
+        if (uploadRes && uploadRes.url) {
+          setFormImageUrl(uploadRes.url);
+          Alert.alert('Succès ! 📸', 'Votre photo a été téléversée avec succès sur Cloudinary.');
+        }
+      }
+    } catch (err: any) {
+      console.error('[PartnerDashboard] Erreur upload image:', err.message);
+      Alert.alert('Échec de l’upload', err.message || 'Une erreur est survenue lors de l’upload de l’image.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const invalidateAppQueries = async () => {
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['infinite-activities'] }),
+        queryClient.invalidateQueries({ queryKey: ['activities'] }),
+      ]);
+    } catch (e) {
+      console.warn('[PartnerDashboard] Erreur invalidation cache:', e);
+    }
+  };
+
   const handleTogglePowerMode = async (item: PartnerActivityItem) => {
     if (!electricityAlertActive) {
       Alert.alert(
@@ -211,6 +270,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       setActivities((prev) =>
         prev.map((a) => (a._id === item._id ? { ...a, powerBackupMode: updated.powerBackupMode } : a))
       );
+      await invalidateAppQueries();
       Alert.alert(
         nextVal ? '💡 Mode Électricité & Lumière ACTIVÉ' : 'Mode Lumière désactivé',
         nextVal
@@ -252,6 +312,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       setActivities((prev) =>
         prev.map((a) => (a._id === promoTarget._id ? { ...a, promotion: updated.promotion } : a))
       );
+      await invalidateAppQueries();
       setPromoModalVisible(false);
       Alert.alert('Succès 🎉', 'Votre promotion a été enregistrée avec succès et diffusée aux utilisateurs !');
     } catch (err: any) {
@@ -294,6 +355,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       setActivities((prev) =>
         prev.map((a) => (a._id === eventTarget._id ? { ...a, events: updated.events } : a))
       );
+      await invalidateAppQueries();
       setEventModalVisible(false);
       Alert.alert('Soirée Live publiée 🎉', 'Votre événement a été ajouté à votre fiche établissement !');
     } catch (err: any) {
@@ -304,6 +366,10 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   const handleSaveActivity = async () => {
     if (!formName.trim()) {
       Alert.alert('Champs requis', 'Veuillez saisir le nom de votre offre ou activité.');
+      return;
+    }
+    if (!formImageUrl.trim()) {
+      Alert.alert('Photo requise 📷', 'Veuillez sélectionner une photo pour votre offre depuis votre galerie.');
       return;
     }
     const parsedPrice = parseFloat(formPrice) || 0;
@@ -345,6 +411,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
           'Votre offre a été soumise avec succès. Elle sera visible une fois modérée par nos équipes.'
         );
       }
+      await invalidateAppQueries();
       setModalVisible(false);
     } catch (err: any) {
       Alert.alert('Erreur', err.message || "Impossible d'enregistrer l'activité.");
@@ -372,6 +439,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                 approved: item.isApproved ? Math.max(0, prev.approved - 1) : prev.approved,
                 pending: !item.isApproved ? Math.max(0, prev.pending - 1) : prev.pending,
               }));
+              await invalidateAppQueries();
               Alert.alert('Succès', 'Offre supprimée avec succès.');
             } catch (err: any) {
               Alert.alert('Erreur', err.message);
@@ -923,15 +991,98 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                 </View>
               </View>
 
-              {/* Image URL */}
-              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Lien photo (URL Unsplash ou image) :</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                placeholder="https://..."
-                placeholderTextColor={theme.textMuted}
-                value={formImageUrl}
-                onChangeText={setFormImageUrl}
-              />
+              {/* Photo de l'offre (Upload sécurisé Cloudinary) */}
+              <View style={{ marginTop: 4, marginBottom: 12 }}>
+                <Text style={[styles.inputLabel, { color: theme.textMuted, marginBottom: 6 }]}>
+                  Photo de l'offre (Hébergée sur Cloudinary CDN) :
+                </Text>
+
+                {/* Prévisualisation sécurisée de l'image */}
+                {formImageUrl ? (
+                  <View style={{ marginBottom: 10, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: theme.cardBorder }}>
+                    <Image source={{ uri: formImageUrl }} style={{ width: '100%', height: 170 }} resizeMode="cover" />
+
+                    {/* Badge Cloudinary Verified */}
+                    <View
+                      style={{
+                        position: 'absolute',
+                        top: 10,
+                        left: 10,
+                        backgroundColor: 'rgba(16, 185, 129, 0.92)',
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                    >
+                      <Ionicons name="checkmark-circle" size={13} color="#FFFFFF" />
+                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>Cloudinary CDN</Text>
+                    </View>
+
+                    {/* Bouton Supprimer */}
+                    <TouchableOpacity
+                      style={{
+                        position: 'absolute',
+                        top: 10,
+                        right: 10,
+                        backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                        paddingHorizontal: 10,
+                        paddingVertical: 5,
+                        borderRadius: 8,
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 4,
+                      }}
+                      onPress={() => setFormImageUrl('')}
+                    >
+                      <Ionicons name="trash-outline" size={12} color="#FFFFFF" />
+                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>Supprimer</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : null}
+
+                {/* Bouton de sélection d'image avec expo-image-picker */}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 10,
+                    backgroundColor: isDark ? '#1E293B' : '#EFF6FF',
+                    borderColor: theme.primary,
+                    borderWidth: 1.5,
+                    borderStyle: formImageUrl ? 'solid' : 'dashed',
+                    paddingVertical: 14,
+                    borderRadius: 14,
+                  }}
+                  onPress={handlePickImage}
+                  disabled={uploadingImage}
+                >
+                  {uploadingImage ? (
+                    <>
+                      <ActivityIndicator size="small" color={theme.primary} />
+                      <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>
+                        Téléversement sécurisé vers Cloudinary...
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Ionicons name={formImageUrl ? 'images' : 'cloud-upload'} size={20} color={theme.primary} />
+                      <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '800' }}>
+                        {formImageUrl ? 'Changer la photo (depuis la galerie)' : '📷 Choisir une photo depuis la galerie'}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                {!formImageUrl && (
+                  <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 6, fontStyle: 'italic' }}>
+                    🔒 Par sécurité, les photos sont directement importées de votre galerie et sécurisées par Cloudinary CDN.
+                  </Text>
+                )}
+              </View>
 
               {/* Description */}
               <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Description de l'offre :</Text>

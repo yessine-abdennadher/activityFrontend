@@ -137,7 +137,7 @@ export default function ActivityDetailsScreen({
         const count = result.reviewsCount ?? result.reviews.length;
         setReviewsCount(count);
         setCurrentRating(count === 0 ? 0 : (result.averageRating ?? 0));
-        Alert.alert(t('success'), t('reviewUpdated'));
+        Alert.alert(t('success'), t('reviewPending'));
       } else {
         const result = await addActivityReview(
           activity.id,
@@ -148,7 +148,7 @@ export default function ActivityDetailsScreen({
         const count = result.reviewsCount ?? result.reviews.length;
         setReviewsCount(count);
         setCurrentRating(count === 0 ? 0 : (result.averageRating ?? 0));
-        Alert.alert(t('success'), t('reviewPublished'));
+        Alert.alert(t('success'), t('reviewPending'));
       }
 
       setShowForm(false);

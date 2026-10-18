@@ -518,7 +518,7 @@ export const ActivityReviewsSection: React.FC<ActivityReviewsSectionProps> = ({
                     color="#FFFFFF"
                   />
                   <Text style={styles.submitBtnText}>
-                    {editingReviewId ? t('updateReview') : t('publishReview')}
+                    {editingReviewId ? t('updateReview') : t('submitReview')}
                   </Text>
                 </>
               )}

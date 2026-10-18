@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  RefreshControl,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +21,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { CompactActivityCard } from '../components/home/CompactActivityCard';
 import { PartnerEventsSection } from '../components/home/PartnerEventsSection';
 import { PartnerPromosSection } from '../components/home/PartnerPromosSection';
+import { AiChatbotTeaserCard } from '../components/home/AiChatbotTeaserCard';
 import { AnimatedGlowButton } from '../components/ui/AnimatedGlowButton';
 import { calculateDistanceKm, formatDistance } from '../services/googleMapsService';
 import { getActivityLocalizedText } from '../services/activityService';
@@ -38,6 +40,9 @@ interface HomeScreenTabProps {
   unreadCount: number;
   currentUser?: AuthUser | null;
   onOpenProfile?: () => void;
+  onOpenChatbot?: () => void;
+  onRefresh?: () => void;
+  refreshing?: boolean;
 }
 
 export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
@@ -52,6 +57,9 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
   unreadCount,
   currentUser,
   onOpenProfile,
+  onOpenChatbot,
+  onRefresh,
+  refreshing,
 }) => {
   const { isDark, theme, toggleDarkMode, language } = usePreferences();
   const { t } = useTranslation();
@@ -123,7 +131,20 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
   }, [localizedActivities]);
 
   return (
-    <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={Boolean(refreshing)}
+            onRefresh={onRefresh}
+            colors={[theme.primary]}
+            tintColor={theme.primary}
+          />
+        ) : undefined
+      }
+    >
       {/* Header card with WIN logo gradient from central theme */}
       <LinearGradient
         colors={theme.headerGradient}
@@ -225,6 +246,9 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
         activities={localizedActivities}
         onSelectActivity={(act) => onSelectActivity(act as any)}
       />
+
+      {/* 🤖 Teaser Assistant IA KharjaTN (Bientôt disponible) */}
+      <AiChatbotTeaserCard onOpenChatbot={onOpenChatbot} />
 
       {/* ── Section À la une / Tendances (Priorité Premium > Pro > Standard, sans distance) ── */}
       <View style={styles.sectionContainer}>

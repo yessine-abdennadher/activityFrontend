@@ -159,6 +159,17 @@ export interface ActivityFilters {
   city?: string;
   category?: string;
   search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface PaginatedActivitiesResult {
+  activities: Activity[];
+  total: number;
+  page: number;
+  totalPages: number;
+  hasMore: boolean;
+  electricityAlertActive?: boolean;
 }
 
 export const DEFAULT_SFAX_ACTIVITIES: Activity[] = [
@@ -776,33 +787,59 @@ export function localizeActivity(activity: Activity, language: 'ar' | 'fr' | 'en
 }
 
 /**
- * Récupère la liste des activités depuis le backend.
+ * Récupère la liste des activités depuis le backend (optimisé par page de 20).
  * En cas d'erreur réseau ou base vide, retourne les données réelles et vérifiées de Sfax.
  */
 export async function getActivities(filters: ActivityFilters = {}): Promise<Activity[]> {
+  const result = await getPaginatedActivities(filters);
+  return result.activities;
+}
+
+/**
+ * Récupère les activités avec pagination complète (page, total, totalPages, hasMore).
+ * Idéal pour l'Infinite Scroll (15-20 éléments par requête) pour des performances optimales.
+ */
+export async function getPaginatedActivities(filters: ActivityFilters = {}): Promise<PaginatedActivitiesResult> {
+  const page = Math.max(1, filters.page || 1);
+  const limit = Math.min(100, Math.max(1, filters.limit || 20));
+
   try {
     const params = new URLSearchParams();
     if (filters.city) params.set('city', filters.city);
     if (filters.category) params.set('category', filters.category);
     if (filters.search) params.set('search', filters.search);
+    params.set('page', String(page));
+    params.set('limit', String(limit));
 
-    const query = params.toString() ? `?${params.toString()}` : '';
+    const query = `?${params.toString()}`;
     console.log(`[activityService] 🚀 Envoi requête GET ${getApiBaseUrl()}/activities${query}...`);
 
     const response = await apiFetch(`/activities${query}`, { method: 'GET' });
 
     if (response.ok) {
       const payload = await response.json();
-      if (Array.isArray(payload.activities) && payload.activities.length > 0) {
-        console.log(`[activityService] ✅ Succès API ! ${payload.activities.length} activités récupérées depuis MongoDB.`);
-        return (payload.activities as Record<string, unknown>[]).map(mapActivity);
+      if (Array.isArray(payload.activities)) {
+        const mapped = (payload.activities as Record<string, unknown>[]).map(mapActivity);
+        const total = typeof payload.total === 'number' ? payload.total : mapped.length;
+        const totalPages = typeof payload.totalPages === 'number' ? payload.totalPages : Math.ceil(total / limit) || 1;
+        const hasMore = typeof payload.hasMore === 'boolean' ? payload.hasMore : page < totalPages;
+
+        console.log(`[activityService] ✅ Page ${page}/${totalPages} (${mapped.length} activités, hasMore=${hasMore})`);
+        return {
+          activities: mapped,
+          total,
+          page,
+          totalPages,
+          hasMore,
+          electricityAlertActive: Boolean(payload.electricityAlertActive),
+        };
       }
     }
   } catch (error) {
     console.warn(`[activityService] ℹ️ Utilisation du catalogue local Sfax (backend hors-ligne ou vide):`, error);
   }
 
-  // Filtrage local robuste sur les activités authentiques de Sfax
+  // Filtrage et découpage local robuste sur les activités authentiques de Sfax
   let localActivities = [...DEFAULT_SFAX_ACTIVITIES];
   if (filters.category) {
     localActivities = localActivities.filter((a) => a.category === filters.category);
@@ -816,7 +853,20 @@ export async function getActivities(filters: ActivityFilters = {}): Promise<Acti
         (a.location && a.location.toLowerCase().includes(s))
     );
   }
-  return localActivities;
+
+  const total = localActivities.length;
+  const totalPages = Math.ceil(total / limit) || 1;
+  const startIndex = (page - 1) * limit;
+  const pagedActivities = localActivities.slice(startIndex, startIndex + limit);
+
+  return {
+    activities: pagedActivities,
+    total,
+    page,
+    totalPages,
+    hasMore: page < totalPages,
+    electricityAlertActive: false,
+  };
 }
 
 /**

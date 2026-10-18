@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -16,6 +16,11 @@ import { AvatarPickerModal } from '../components/profile/AvatarPickerModal';
 import { PalettePickerModal } from '../components/profile/PalettePickerModal';
 import { APP_PALETTES } from '../theme/palettes';
 import { updateUserAvatar } from '../services/authService';
+import {
+  getNotificationsEnabled,
+  setNotificationsEnabled as setPushServiceNotificationsEnabled,
+  triggerTestNotificationAsync,
+} from '../services/pushNotificationService';
 import type { AuthUser } from '../types';
 
 interface ProfileScreenProps {
@@ -44,7 +49,30 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
   const [palettePickerVisible, setPalettePickerVisible] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [isTestingNotif, setIsTestingNotif] = useState(false);
   const [locationServicesEnabled, setLocationServicesEnabled] = useState(true);
+
+  // Charger la préférence de notification persistée
+  useEffect(() => {
+    let isMounted = true;
+    getNotificationsEnabled().then((enabled) => {
+      if (isMounted) setNotificationsEnabled(enabled);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleTogglePushNotifications = async (val: boolean) => {
+    setNotificationsEnabled(val);
+    await setPushServiceNotificationsEnabled(val, language);
+  };
+
+  const handleTriggerTest = async () => {
+    setIsTestingNotif(true);
+    await triggerTestNotificationAsync(language);
+    setTimeout(() => setIsTestingNotif(false), 1500);
+  };
 
   const activePaletteObj = APP_PALETTES.find((p) => p.id === palette) || APP_PALETTES[0];
   const paletteDisplayName =
@@ -123,7 +151,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </Text>
           </TouchableOpacity>
 
-          <Text style={styles.profileName}>{currentUser?.name || 'Utilisateur ActivityTN'}</Text>
+          <Text style={styles.profileName}>{currentUser?.name || 'Membre Tfarhida'}</Text>
           <Text style={styles.profileEmail}>{currentUser?.email || ''}</Text>
 
           <View style={[styles.roleBadge, { backgroundColor: roleColor }]}>
@@ -254,7 +282,58 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             </TouchableOpacity>
           )}
 
-          {/* Raccourci Notifications */}
+          {/* Paramètre Notifications Push & Alertes programmées */}
+          <View
+            style={[
+              styles.settingRow,
+              {
+                backgroundColor: theme.cardBg,
+                borderColor: theme.cardBorder,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+              },
+            ]}
+          >
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 12, flex: 1 }}>
+              <Ionicons name="notifications-outline" size={22} color={theme.primary} />
+              <View style={{ flex: 1, alignItems: isRTL ? 'flex-end' : 'flex-start' }}>
+                <Text style={[styles.settingText, { color: theme.textMain }]}>
+                  {t('pushNotificationsSetting')}
+                </Text>
+                <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2, textAlign: isRTL ? 'right' : 'left' }}>
+                  {notificationsEnabled ? t('pushNotificationsActiveSub') : t('pushNotificationsDisabledSub')}
+                </Text>
+              </View>
+            </View>
+            <Switch
+              value={notificationsEnabled}
+              onValueChange={handleTogglePushNotifications}
+              trackColor={{ false: '#CBD5E1', true: theme.primary }}
+              thumbColor="#FFFFFF"
+            />
+          </View>
+
+          {/* Bouton pour tester une notification instantanée */}
+          {notificationsEnabled && (
+            <TouchableOpacity
+              style={[
+                styles.testNotifBtn,
+                {
+                  backgroundColor: theme.primary + '14',
+                  borderColor: theme.primary + '35',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+              onPress={handleTriggerTest}
+              activeOpacity={0.75}
+            >
+              <Ionicons name="flash" size={15} color={theme.primary} />
+              <Text style={[styles.testNotifText, { color: theme.primary }]}>
+                {isTestingNotif ? '...' : t('testNotificationBtn')}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Raccourci Historique des Notifications */}
           <TouchableOpacity
             style={[
               styles.settingRow,
@@ -268,7 +347,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             activeOpacity={0.8}
           >
             <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 12 }}>
-              <Ionicons name="notifications-outline" size={22} color={theme.primary} />
+              <Ionicons name="time-outline" size={22} color={theme.primary} />
               <Text style={[styles.settingText, { color: theme.textMain }]}>{t('notifications')}</Text>
             </View>
             <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={theme.textSub} />
@@ -444,7 +523,7 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
           </TouchableOpacity>
 
           <Text style={{ color: theme.textMuted, textAlign: 'center', fontSize: 12, marginTop: 8 }}>
-            ActivityTN · Version 1.0
+            Tfarhida · Version 1.0
           </Text>
         </View>
       </View>
@@ -635,5 +714,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     paddingHorizontal: 8,
+  },
+  testNotifBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: -4,
+    marginBottom: 4,
+  },
+  testNotifText: {
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

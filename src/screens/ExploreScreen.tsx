@@ -6,6 +6,7 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../context/AppPreferencesContext';
@@ -20,6 +21,9 @@ interface ExploreScreenProps {
   onToggleFavorite: (id: string) => void;
   onSelectActivity: (activity: Activity) => void;
   onOpenMap: () => void;
+  onLoadMore?: () => void;
+  hasMore?: boolean;
+  isLoadingMore?: boolean;
 }
 
 export const ExploreScreen: React.FC<ExploreScreenProps> = ({
@@ -28,6 +32,9 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({
   onToggleFavorite,
   onSelectActivity,
   onOpenMap,
+  onLoadMore,
+  hasMore,
+  isLoadingMore,
 }) => {
   const { theme, language } = usePreferences();
   const { t } = useTranslation();
@@ -268,6 +275,43 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({
                 onToggleFavorite={() => onToggleFavorite(act.id)}
               />
             ))
+          )}
+
+          {/* Bouton de chargement paginé (+20 activités) */}
+          {hasMore && onLoadMore && exploreResults.length > 0 && (
+            <TouchableOpacity
+              style={{
+                paddingVertical: 14,
+                paddingHorizontal: 20,
+                backgroundColor: `${theme.primary}12`,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: `${theme.primary}30`,
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: 16,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+                gap: 8,
+              }}
+              onPress={onLoadMore}
+              disabled={isLoadingMore}
+              activeOpacity={0.8}
+            >
+              {isLoadingMore ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <>
+                  <Ionicons name="arrow-down-circle-outline" size={18} color={theme.primary} />
+                  <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 14 }}>
+                    {language === 'ar'
+                      ? 'عرض المزيد من الأنشطة (+20)'
+                      : language === 'en'
+                      ? 'Load more activities (+20)'
+                      : "Charger plus d'activités (+20)"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
           )}
         </View>
       </View>

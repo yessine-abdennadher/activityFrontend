@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Image,
   ScrollView,
-  TextInput,
   ActivityIndicator,
   Alert,
   Platform,
@@ -16,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { usePreferences } from '../../context/AppPreferencesContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { SwipeableModal } from '../ui/SwipeableModal';
+import { uploadImage } from '../../services/uploadService';
 
 // Collection d'avatars stylés, modernes et diversifiés (qualité HD Unsplash)
 export const PRESET_AVATARS = [
@@ -79,7 +79,6 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   const isRTL = language === 'ar';
 
   const [selectedUri, setSelectedUri] = useState<string>(currentAvatar || PRESET_AVATARS[0].url);
-  const [customUrl, setCustomUrl] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   React.useEffect(() => {
@@ -88,10 +87,9 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
     }
   }, [currentAvatar, visible]);
 
-  // Choisir depuis la bibliothèque de photos
+  // Choisir depuis la bibliothèque de photos et téléverser sur Cloudinary
   const handlePickFromGallery = async () => {
     try {
-      setIsLoading(true);
       const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permission.granted) {
         Alert.alert(
@@ -100,7 +98,6 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
             ? 'يرجى السماح بالوصول إلى معرض الصور لاختيار صورتك الشخصية.'
             : 'Veuillez autoriser l’accès à la galerie photos pour choisir votre avatar.'
         );
-        setIsLoading(false);
         return;
       }
 
@@ -108,24 +105,54 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.85,
+        quality: 0.8,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const uri = result.assets[0].uri;
-        setSelectedUri(uri);
+        const asset = result.assets[0];
+        if (!asset.base64) {
+          Alert.alert(
+            language === 'ar' ? 'خطأ' : 'Erreur',
+            language === 'ar'
+              ? 'تعذر قراءة بيانات الصورة المحددة.'
+              : 'Impossible de récupérer les données de l’image sélectionnée.'
+          );
+          return;
+        }
+
+        setIsLoading(true);
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const base64Data = `data:${mimeType};base64,${asset.base64}`;
+
+        const uploadRes = await uploadImage(base64Data, 'avatars');
+        if (uploadRes && uploadRes.url) {
+          setSelectedUri(uploadRes.url);
+          Alert.alert(
+            language === 'ar' ? 'تم الرفع بنجاح! 📸' : 'Téléversement réussi ! 📸',
+            language === 'ar'
+              ? 'تم رفع صورتك الشخصية بنجاح وحفظها بأمان على السحابة.'
+              : 'Votre avatar a été téléversé et sécurisé sur Cloudinary avec succès.'
+          );
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[AvatarPickerModal] Erreur sélection galerie:', err);
+      Alert.alert(
+        language === 'ar' ? 'خطأ في التحميل' : 'Échec du téléversement',
+        err.message ||
+          (language === 'ar'
+            ? 'حدث خطأ أثناء رفع الصورة.'
+            : 'Une erreur est survenue lors de l’envoi de votre photo.')
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Prendre une photo avec la caméra
+  // Prendre une photo avec la caméra et téléverser sur Cloudinary
   const handleTakePhoto = async () => {
     try {
-      setIsLoading(true);
       const permission = await ImagePicker.requestCameraPermissionsAsync();
       if (!permission.granted) {
         Alert.alert(
@@ -134,31 +161,55 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
             ? 'يرجى السماح بالوصول إلى الكاميرا لالتقاط صورة شخصية.'
             : 'Veuillez autoriser l’accès à l’appareil photo pour prendre un selfie.'
         );
-        setIsLoading(false);
         return;
       }
 
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [1, 1],
-        quality: 0.85,
+        quality: 0.8,
+        base64: true,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        const uri = result.assets[0].uri;
-        setSelectedUri(uri);
+        const asset = result.assets[0];
+        if (!asset.base64) {
+          Alert.alert(
+            language === 'ar' ? 'خطأ' : 'Erreur',
+            language === 'ar'
+              ? 'تعذر قراءة بيانات الصورة الملتقطة.'
+              : 'Impossible de récupérer les données de la photo prise.'
+          );
+          return;
+        }
+
+        setIsLoading(true);
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const base64Data = `data:${mimeType};base64,${asset.base64}`;
+
+        const uploadRes = await uploadImage(base64Data, 'avatars');
+        if (uploadRes && uploadRes.url) {
+          setSelectedUri(uploadRes.url);
+          Alert.alert(
+            language === 'ar' ? 'تم الرفع بنجاح! 📸' : 'Téléversement réussi ! 📸',
+            language === 'ar'
+              ? 'تم رفع صورتك الشخصية بنجاح وحفظها بأمان على السحابة.'
+              : 'Votre avatar a été téléversé et sécurisé sur Cloudinary avec succès.'
+          );
+        }
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('[AvatarPickerModal] Erreur caméra:', err);
+      Alert.alert(
+        language === 'ar' ? 'خطأ في التحميل' : 'Échec du téléversement',
+        err.message ||
+          (language === 'ar'
+            ? 'حدث خطأ أثناء رفع الصورة.'
+            : 'Une erreur est survenue lors de l’envoi de votre photo.')
+      );
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleApplyCustomUrl = () => {
-    if (!customUrl.trim()) return;
-    setSelectedUri(customUrl.trim());
-    setCustomUrl('');
   };
 
   const handleConfirm = async () => {
@@ -312,47 +363,43 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
               })}
             </View>
 
-            {/* URL Input Fallback */}
-            <View style={styles.urlSection}>
-              <Text
-                style={[
-                  styles.sectionLabel,
-                  { color: theme.textMuted, fontSize: 12, textAlign: isRTL ? 'right' : 'left' },
-                ]}
-              >
-                {t('orEnterImageUrl')}
-              </Text>
-              <View
-                style={[
-                  styles.urlInputRow,
-                  {
-                    backgroundColor: theme.bgSecondary,
-                    borderColor: theme.cardBorder,
-                    flexDirection: isRTL ? 'row-reverse' : 'row',
-                  },
-                ]}
-              >
-                <Ionicons name="link-outline" size={18} color={theme.textMuted} />
-                <TextInput
-                  value={customUrl}
-                  onChangeText={setCustomUrl}
-                  placeholder={t('pasteImageUrlPlaceholder')}
-                  placeholderTextColor={theme.textMuted}
+            {/* Safe Cloud Storage & Security Info Badge */}
+            <View
+              style={[
+                styles.secureBadge,
+                {
+                  backgroundColor: isDark ? 'rgba(16,185,129,0.1)' : '#ECFDF5',
+                  borderColor: isDark ? 'rgba(16,185,129,0.25)' : '#A7F3D0',
+                  flexDirection: isRTL ? 'row-reverse' : 'row',
+                },
+              ]}
+            >
+              <Ionicons name="shield-checkmark" size={18} color="#10B981" />
+              <View style={{ flex: 1 }}>
+                <Text
                   style={[
-                    styles.urlInput,
-                    { color: theme.textMain, textAlign: isRTL ? 'right' : 'left' },
+                    styles.secureBadgeTitle,
+                    { color: isDark ? '#34D399' : '#065F46', textAlign: isRTL ? 'right' : 'left' },
                   ]}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                {customUrl.trim().length > 0 && (
-                  <TouchableOpacity
-                    style={[styles.applyUrlBtn, { backgroundColor: theme.primary }]}
-                    onPress={handleApplyCustomUrl}
-                  >
-                    <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
-                  </TouchableOpacity>
-                )}
+                >
+                  {language === 'ar'
+                    ? 'رفع سحابي آمن وتشفير فائق'
+                    : language === 'en'
+                    ? 'Secure Cloud CDN Storage'
+                    : 'Stockage Cloud CDN Sécurisé'}
+                </Text>
+                <Text
+                  style={[
+                    styles.secureBadgeSub,
+                    { color: isDark ? '#A7F3D0' : '#047857', textAlign: isRTL ? 'right' : 'left' },
+                  ]}
+                >
+                  {language === 'ar'
+                    ? 'يتم تحسين الصور وتقديمها عبر Cloudinary دون الحاجة لروابط خارجية.'
+                    : language === 'en'
+                    ? 'Photos are safely compressed and served via Cloudinary CDN without external links.'
+                    : 'Vos photos sont compressées et distribuées via Cloudinary CDN sans lien externe arbitraire.'}
+                </Text>
               </View>
             </View>
           </ScrollView>
@@ -514,30 +561,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 4,
   },
-  urlSection: {
-    marginTop: 4,
-    marginBottom: 10,
-  },
-  urlInputRow: {
+  secureBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    height: 44,
-    marginTop: 6,
-    gap: 8,
+    marginTop: 4,
+    marginBottom: 8,
   },
-  urlInput: {
-    flex: 1,
-    fontSize: 13,
-    height: '100%',
+  secureBadgeTitle: {
+    fontSize: 12,
+    fontWeight: '800',
   },
-  applyUrlBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+  secureBadgeSub: {
+    fontSize: 11,
+    marginTop: 2,
+    lineHeight: 15,
   },
   bottomRow: {
     gap: 12,

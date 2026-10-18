@@ -104,7 +104,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
       const successMsg =
         mode === 'login'
-          ? 'Connexion réussie ! Bienvenue sur ActivityTN.'
+          ? 'Connexion réussie ! Bienvenue sur Tfarhida.'
           : 'Compte créé avec succès !';
       setAuthSuccess(successMsg);
       toast.success(successMsg, 'Succès 🎉');

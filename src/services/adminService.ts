@@ -18,6 +18,31 @@ function getHeaders(): HeadersInit {
   };
 }
 
+export interface AdminReviewItem {
+  _id: string;
+  activity: { _id: string; name: string } | null;
+  userName: string;
+  rating: number;
+  comment: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+}
+
+export async function fetchReviewsForModeration(page = 1): Promise<{ reviews: AdminReviewItem[]; total: number; totalPages: number }> {
+  const response = await fetch(`${getApiBaseUrl()}/admin/reviews?status=pending&page=${page}&limit=20`, { headers: getHeaders() });
+  const data = await response.json();
+  if (!response.ok || !data.success) throw new Error(data.message || 'Impossible de charger les avis.');
+  return data;
+}
+
+export async function moderateReview(reviewId: string, status: 'approved' | 'rejected'): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/admin/reviews/${reviewId}/status`, {
+    method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status }),
+  });
+  const data = await response.json();
+  if (!response.ok || !data.success) throw new Error(data.message || 'Impossible de modérer cet avis.');
+}
+
 /**
  * Récupérer les KPI globaux de la plateforme
  */

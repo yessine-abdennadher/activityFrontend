@@ -33,6 +33,7 @@ import { ExploreScreen } from './src/screens/ExploreScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { LogoutConfirmModal } from './src/components/ui/LogoutConfirmModal';
 import ActivityDetailsScreen from './src/screens/ActivityDetailsScreen';
+import { ChatbotScreenTab } from './src/screens/ChatbotScreenTab';
 import { SplashScreen } from './src/screens/SplashScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { AuthScreen } from './src/screens/AuthScreen';
@@ -42,11 +43,15 @@ import { RecommendationResultsScreen } from './src/screens/RecommendationResults
 import { MapScreen } from './src/screens/MapScreen';
 import { AdminDashboardScreen } from './src/screens/AdminDashboardScreen';
 import { PartnerDashboardScreen } from './src/screens/PartnerDashboardScreen';
-import { useActivities } from './src/hooks/useActivities';
+import { useActivities, useInfiniteActivities } from './src/hooks/useActivities';
 import type { Activity, AuthUser } from './src/types';
 import { logout as authLogout, restoreSession, fetchCurrentUserProfile } from './src/services/authService';
 import { getUserFavorites, toggleActivityFavorite, localizeActivity } from './src/services/activityService';
 import { trackSessionStart, trackScreenView } from './src/services/telemetryService';
+import {
+  registerForPushNotificationsAsync,
+  scheduleLocalNotificationsAsync,
+} from './src/services/pushNotificationService';
 
 function MainContent({
   currentUser,
@@ -59,7 +64,14 @@ function MainContent({
 }) {
   const { isDark, theme, toggleDarkMode, language, setLanguage } = usePreferences();
   const { t } = useTranslation();
-  const { activities } = useActivities();
+  const {
+    activities,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch: refetchActivities,
+    isRefetching,
+  } = useInfiniteActivities();
   const { unreadCount } = useNotifications();
   const { width: windowWidth } = useWindowDimensions();
 
@@ -71,7 +83,7 @@ function MainContent({
     return Math.min(240, Math.floor((windowWidth - 52) / 2));
   }, [windowWidth]);
 
-  const [activeTab, setActiveTab] = useState<'home' | 'explore' | 'favorites' | 'profile' | 'notifications'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'explore' | 'chat' | 'favorites' | 'profile' | 'notifications'>('home');
   const [selectedCat, setSelectedCat] = useState('fun');
   const [mapVisible, setMapVisible] = useState(false);
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -86,6 +98,13 @@ function MainContent({
   useEffect(() => {
     trackSessionStart();
   }, []);
+
+  // Notifications Push & alertes récurrentes avec styles variés (soirées, brunchs, promos, KharjaBot)
+  useEffect(() => {
+    registerForPushNotificationsAsync().then(() => {
+      scheduleLocalNotificationsAsync(language);
+    });
+  }, [language]);
 
   useEffect(() => {
     if (adminDashboardVisible) {
@@ -226,7 +245,10 @@ function MainContent({
     return (
       <PartnerDashboardScreen
         currentUser={currentUser}
-        onBack={() => setPartnerDashboardVisible(false)}
+        onBack={() => {
+          setPartnerDashboardVisible(false);
+          refetchActivities();
+        }}
         onUpdateUser={onUpdateUser}
       />
     );
@@ -260,6 +282,9 @@ function MainContent({
             unreadCount={unreadCount}
             currentUser={currentUser}
             onOpenProfile={() => setActiveTab('profile')}
+            onOpenChatbot={() => setActiveTab('chat')}
+            onRefresh={refetchActivities}
+            refreshing={isRefetching}
           />
         )}
 
@@ -271,6 +296,9 @@ function MainContent({
             onToggleFavorite={toggleFav}
             onSelectActivity={(act) => setSelectedActivity(act)}
             onOpenMap={() => setMapVisible(true)}
+            onLoadMore={() => fetchNextPage()}
+            hasMore={Boolean(hasNextPage)}
+            isLoadingMore={isFetchingNextPage}
           />
         )}
 
@@ -314,6 +342,13 @@ function MainContent({
               )}
             </View>
           </ScrollView>
+        )}
+
+        {/* Screen 3: KharjaBot IA Chat Tab */}
+        {activeTab === 'chat' && (
+          <ChatbotScreenTab
+            onNavigateToHome={() => setActiveTab('home')}
+          />
         )}
 
         {/* Screen 4: Notifications Screen */}

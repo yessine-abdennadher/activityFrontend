@@ -38,6 +38,8 @@ import {
 } from '../types';
 import { AdminDiagnosticsTab } from '../components/admin/AdminDiagnosticsTab';
 import { PartnerTierModal } from '../components/admin/PartnerTierModal';
+import { ReviewModerationTab } from '../components/admin/ReviewModerationTab';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface AdminDashboardScreenProps {
   currentUser: AuthUser | null;
@@ -51,9 +53,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   onUpdateUser,
 }) => {
   const { isDark, theme, language, setElectricityAlertActive } = usePreferences();
+  const { t } = useTranslation();
 
   // Navigation tab inside Admin Dashboard
-  const [activeTab, setActiveTab] = useState<'kpi' | 'activities' | 'users' | 'diagnostics'>('kpi');
+  const [activeTab, setActiveTab] = useState<'kpi' | 'activities' | 'reviews' | 'users' | 'diagnostics'>('kpi');
 
   // Loading & Refreshing states
   const [loading, setLoading] = useState(true);
@@ -335,7 +338,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
               </View>
             </View>
             <Text style={[styles.headerSubtitle, { color: theme.textMuted }]}>
-              {currentUser?.name || 'Administrateur'} · ActivityTN
+              {currentUser?.name || 'Administrateur'} · Tfarhida
             </Text>
           </View>
         </View>
@@ -349,7 +352,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
       </View>
 
       {/* Segmented Tab Bar */}
-      <View style={[styles.tabBar, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.tabBar, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
         <TouchableOpacity
           style={[
             styles.tabItem,
@@ -395,6 +398,16 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
         </TouchableOpacity>
 
         <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'reviews' && { backgroundColor: theme.primary }]}
+          onPress={() => setActiveTab('reviews')}
+          accessibilityRole="button"
+          accessibilityLabel={t('adminReviews')}
+        >
+          <Ionicons name="chatbubbles-outline" size={16} color={activeTab === 'reviews' ? '#FFFFFF' : theme.textMuted} />
+          <Text style={[styles.tabText, { color: activeTab === 'reviews' ? '#FFFFFF' : theme.textMuted }]}>{t('adminReviews')}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           style={[
             styles.tabItem,
             activeTab === 'users' && { backgroundColor: theme.primary },
@@ -437,7 +450,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
             Diagnostics
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       {/* Main Body */}
       {loading ? (
@@ -471,6 +484,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
             />
           }
         >
+          {activeTab === 'reviews' && <ReviewModerationTab />}
           {/* TAB 1 : VUE D'ENSEMBLE (KPI & STATS) */}
           {activeTab === 'kpi' && stats && (
             <View style={styles.tabContent}>
@@ -1154,7 +1168,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   tabItem: {
-    flex: 1,
+    minWidth: 110,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

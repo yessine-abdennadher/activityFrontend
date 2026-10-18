@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Win",
-    "slug": "win",
+    "name": "Tfarhida",
+    "slug": "tfarhida",
     "version": "1.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
@@ -13,13 +13,13 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "tn.win.app",
+      "bundleIdentifier": "tn.tfarhida.app",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Win utilise votre position pour vous recommander les activités et loisirs à proximité."
+        "NSLocationWhenInUseUsageDescription": "Tfarhida utilise votre position pour vous recommander les meilleures sorties et loisirs à proximité."
       }
     },
     "android": {
-      "package": "tn.win.app",
+      "package": "tn.tfarhida.app",
       "versionCode": 1,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
@@ -35,7 +35,7 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Win utilise votre position pour vous recommander les activités et loisirs à proximité."
+          "locationWhenInUsePermission": "Tfarhida utilise votre position pour vous recommander les meilleures sorties et loisirs à proximité."
         }
       ],
       "expo-secure-store"

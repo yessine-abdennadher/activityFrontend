@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -6,8 +6,13 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Image,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { uploadImage } from '../../services/uploadService';
 import { ThemeColors } from '../../theme/theme';
 import { PartnerActivityItem } from '../../types';
 import { SwipeableModal } from '../ui/SwipeableModal';
@@ -53,6 +58,52 @@ export const PartnerProEventModal: React.FC<PartnerProEventModalProps> = ({
   onClose,
   onSave,
 }) => {
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  const handlePickEventImage = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Permission requise',
+          'Veuillez autoriser l’accès à vos photos pour uploader l’affiche de la soirée.'
+        );
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [16, 9],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        if (!asset.base64) {
+          Alert.alert('Erreur', 'Impossible de récupérer les données de l’affiche.');
+          return;
+        }
+
+        setUploadingImage(true);
+        const mimeType = asset.mimeType || 'image/jpeg';
+        const base64Data = `data:${mimeType};base64,${asset.base64}`;
+
+        const uploadRes = await uploadImage(base64Data, 'activities');
+        if (uploadRes && uploadRes.url && onImageChange) {
+          onImageChange(uploadRes.url);
+          Alert.alert('Affiche uploadée ! 📸', 'L’affiche de la soirée a été téléversée sur Cloudinary.');
+        }
+      }
+    } catch (err: any) {
+      console.error('[PartnerProEventModal] Erreur upload:', err.message);
+      Alert.alert('Échec de l’upload', err.message || 'Une erreur est survenue lors de l’upload.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   return (
     <SwipeableModal
       visible={visible}
@@ -95,21 +146,65 @@ export const PartnerProEventModal: React.FC<PartnerProEventModalProps> = ({
               onChangeText={onTitleChange}
             />
 
-            <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Photo / Affiche de l'événement (URL) :</Text>
-            <TextInput
-              style={[
-                styles.input,
-                {
-                  backgroundColor: isDark ? '#1E293B' : '#F8FAFC',
-                  color: theme.textMain,
-                  borderColor: theme.cardBorder,
-                },
-              ]}
-              placeholder="https://images.unsplash.com/... (optionnel)"
-              placeholderTextColor={theme.textMuted}
-              value={image}
-              onChangeText={onImageChange}
-            />
+            {/* Affiche de l'événement (Upload sécurisé Cloudinary) */}
+            <View style={{ marginTop: 4, marginBottom: 12 }}>
+              <Text style={[styles.inputLabel, { color: theme.textMuted, marginBottom: 6 }]}>
+                Affiche de l'événement (Hébergée sur Cloudinary CDN) :
+              </Text>
+
+              {image ? (
+                <View style={{ marginBottom: 10, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: theme.cardBorder }}>
+                  <Image source={{ uri: image }} style={{ width: '100%', height: 140 }} resizeMode="cover" />
+                  <TouchableOpacity
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                      paddingHorizontal: 8,
+                      paddingVertical: 4,
+                      borderRadius: 8,
+                    }}
+                    onPress={() => onImageChange && onImageChange('')}
+                  >
+                    <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>Supprimer</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 8,
+                  backgroundColor: isDark ? '#1E293B' : '#EFF6FF',
+                  borderColor: theme.primary,
+                  borderWidth: 1.5,
+                  borderStyle: image ? 'solid' : 'dashed',
+                  paddingVertical: 12,
+                  borderRadius: 12,
+                }}
+                onPress={handlePickEventImage}
+                disabled={uploadingImage}
+              >
+                {uploadingImage ? (
+                  <>
+                    <ActivityIndicator size="small" color={theme.primary} />
+                    <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>
+                      Téléversement vers Cloudinary...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name={image ? 'images' : 'cloud-upload'} size={18} color={theme.primary} />
+                    <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>
+                      {image ? 'Changer l\'affiche' : '📷 Choisir l\'affiche (Galerie)'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.rowTwoCols}>
               <View style={{ flex: 1 }}>

@@ -28,6 +28,8 @@ export const STORAGE_KEYS = {
   LANGUAGE: 'activitytn_pref_language',
   THEME_MODE: 'activitytn_pref_theme_mode',
   THEME_PALETTE: 'activitytn_pref_theme_palette',
+  NOTIFICATIONS_ENABLED: 'activitytn_pref_notifications_enabled',
+  PUSH_TOKEN: 'activitytn_push_token',
 } as const;
 
 // Clés qui doivent obligatoirement être chiffrées dans le Keystore / Keychain

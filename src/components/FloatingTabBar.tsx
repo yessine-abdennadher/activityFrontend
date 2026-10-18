@@ -3,8 +3,9 @@ import { StyleSheet, View, Text, TouchableOpacity, Animated, Easing } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../theme/theme';
+import { useTranslation } from '../hooks/useTranslation';
 
-type TabKey = 'home' | 'explore' | 'favorites' | 'notifications' | 'profile';
+export type TabKey = 'home' | 'explore' | 'chat' | 'favorites' | 'notifications' | 'profile';
 
 interface FloatingTabBarProps {
   activeTab: TabKey;
@@ -19,14 +20,6 @@ interface TabConfig {
   activeIcon: keyof typeof Ionicons.glyphMap;
   label: string;
 }
-
-const TABS: TabConfig[] = [
-  { key: 'home', icon: 'home-outline', activeIcon: 'home', label: 'الرئيسية' },
-  { key: 'explore', icon: 'compass-outline', activeIcon: 'compass', label: 'اكتشف' },
-  { key: 'favorites', icon: 'heart-outline', activeIcon: 'heart', label: 'المفضلة' },
-  { key: 'notifications', icon: 'notifications-outline', activeIcon: 'notifications', label: 'الإشعارات' },
-  { key: 'profile', icon: 'person-outline', activeIcon: 'person', label: 'حسابي' },
-];
 
 const TabButton: React.FC<{
   tab: TabConfig;
@@ -133,6 +126,15 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
   notificationsCount,
 }) => {
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+
+  const tabs: TabConfig[] = [
+    { key: 'home', icon: 'home-outline', activeIcon: 'home', label: t('tabHome') },
+    { key: 'explore', icon: 'compass-outline', activeIcon: 'compass', label: t('tabExplore') },
+    { key: 'chat', icon: 'sparkles-outline', activeIcon: 'sparkles', label: t('tabChat') },
+    { key: 'favorites', icon: 'heart-outline', activeIcon: 'heart', label: t('tabFavorites') },
+    { key: 'profile', icon: 'person-outline', activeIcon: 'person', label: t('tabProfile') },
+  ];
 
   return (
     <View
@@ -149,7 +151,7 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
           },
         ]}
       >
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <TabButton
             key={tab.key}
             tab={tab}
