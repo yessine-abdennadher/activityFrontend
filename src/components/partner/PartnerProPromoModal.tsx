@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Modal,
   View,
   Text,
   TextInput,
@@ -11,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../theme/theme';
 import { PartnerActivityItem } from '../../types';
+import { SwipeableModal } from '../ui/SwipeableModal';
 
 interface PartnerProPromoModalProps {
   visible: boolean;
@@ -50,9 +50,14 @@ export const PartnerProPromoModal: React.FC<PartnerProPromoModalProps> = ({
   onSave,
 }) => {
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.modalBackdrop}>
-        <View style={[styles.modalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+    <SwipeableModal
+      visible={visible}
+      onClose={onClose}
+      height="85%"
+      showHandle={true}
+      disableInternalScroll={true}
+    >
+      <View style={styles.modalInner}>
           <View style={styles.modalHeader}>
             <View style={styles.titleRow}>
               <Text style={{ fontSize: 18 }}>🏷️</Text>
@@ -193,23 +198,15 @@ export const PartnerProPromoModal: React.FC<PartnerProPromoModalProps> = ({
             </TouchableOpacity>
           </ScrollView>
         </View>
-      </View>
-    </Modal>
+    </SwipeableModal>
   );
 };
 
 const styles = StyleSheet.create({
-  modalBackdrop: {
+  modalInner: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    borderRadius: 24,
-    padding: 20,
-    maxHeight: '85%',
-    borderWidth: 1.5,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   modalHeader: {
     flexDirection: 'row',

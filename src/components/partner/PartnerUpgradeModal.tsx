@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   Text,
-  Modal,
   TouchableOpacity,
   ScrollView,
   Linking,
@@ -11,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { usePreferences } from '../../context/AppPreferencesContext';
 import type { PartnerTier } from '../../types';
+import { SwipeableModal } from '../ui/SwipeableModal';
 
 interface PartnerUpgradeModalProps {
   visible: boolean;
@@ -106,9 +106,14 @@ export const PartnerUpgradeModal: React.FC<PartnerUpgradeModalProps> = ({
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <View style={styles.backdrop}>
-        <View style={[styles.card, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
+    <SwipeableModal
+      visible={visible}
+      onClose={onClose}
+      height="88%"
+      showHandle={true}
+      disableInternalScroll={true}
+    >
+      <View style={styles.modalInner}>
           {/* Header */}
           <View style={styles.header}>
             <View style={{ flex: 1 }}>
@@ -299,30 +304,15 @@ export const PartnerUpgradeModal: React.FC<PartnerUpgradeModalProps> = ({
             </View>
           </View>
         </View>
-      </View>
-    </Modal>
-  );
-};
+      </SwipeableModal>
+    );
+  };
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalInner: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'center',
-    padding: 16,
-  },
-  card: {
-    maxHeight: '90%',
-    borderRadius: 24,
-    borderWidth: 1,
-    paddingTop: 20,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
   },
   header: {
     flexDirection: 'row',

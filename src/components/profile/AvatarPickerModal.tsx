@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   Text,
-  Modal,
   TouchableOpacity,
   Image,
   ScrollView,
@@ -16,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { usePreferences } from '../../context/AppPreferencesContext';
 import { useTranslation } from '../../hooks/useTranslation';
+import { SwipeableModal } from '../ui/SwipeableModal';
 
 // Collection d'avatars stylés, modernes et diversifiés (qualité HD Unsplash)
 export const PRESET_AVATARS = [
@@ -175,22 +175,14 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
   };
 
   return (
-    <Modal
+    <SwipeableModal
       visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
+      onClose={onClose}
+      height="90%"
+      showHandle={true}
+      disableInternalScroll={true}
     >
-      <View style={styles.modalOverlay}>
-        <View
-          style={[
-            styles.sheetContainer,
-            {
-              backgroundColor: theme.cardBg,
-              borderColor: theme.cardBorder,
-            },
-          ]}
-        >
+      <View style={styles.modalInner}>
           {/* Header */}
           <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={{ flex: 1 }}>
@@ -394,31 +386,15 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
             </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </Modal>
-  );
-};
+      </SwipeableModal>
+    );
+  };
 
 const styles = StyleSheet.create({
-  modalOverlay: {
+  modalInner: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'flex-end',
-  },
-  sheetContainer: {
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-    borderWidth: 1,
-    borderBottomWidth: 0,
-    maxHeight: '90%',
-    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
-    paddingTop: 16,
     paddingHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 20,
   },
   headerRow: {
     justifyContent: 'space-between',

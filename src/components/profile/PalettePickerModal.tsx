@@ -3,7 +3,6 @@ import {
   StyleSheet,
   View,
   Text,
-  Modal,
   TouchableOpacity,
   ScrollView,
 } from 'react-native';
@@ -12,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { usePreferences } from '../../context/AppPreferencesContext';
 import { useTranslation } from '../../hooks/useTranslation';
 import { APP_PALETTES, type PaletteId, type ColorPalette } from '../../theme/palettes';
+import { SwipeableModal } from '../ui/SwipeableModal';
 
 interface PalettePickerModalProps {
   visible: boolean;
@@ -35,22 +35,14 @@ export const PalettePickerModal: React.FC<PalettePickerModalProps> = ({
   };
 
   return (
-    <Modal
+    <SwipeableModal
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      height="85%"
+      showHandle={true}
+      disableInternalScroll={true}
     >
-      <View style={styles.backdrop}>
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: theme.cardBg,
-              borderColor: theme.cardBorder,
-            },
-          ]}
-        >
+      <View style={styles.modalInner}>
           {/* Header avec bouton fermer */}
           <View style={[styles.headerRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             <View style={[styles.headerIconBox, { backgroundColor: `${theme.primary}18` }]}>
@@ -187,31 +179,15 @@ export const PalettePickerModal: React.FC<PalettePickerModalProps> = ({
             <Text style={styles.applyButtonText}>{getApplyText()}</Text>
           </TouchableOpacity>
         </View>
-      </View>
-    </Modal>
-  );
-};
+      </SwipeableModal>
+    );
+  };
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalInner: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.65)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  card: {
-    width: '100%',
-    maxWidth: 440,
-    maxHeight: '85%',
-    borderRadius: 28,
-    borderWidth: 1,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    elevation: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   headerRow: {
     alignItems: 'center',
