@@ -1,7 +1,9 @@
 import React, { useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Animated, Easing, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { WIN_COLORS } from '../../theme';
+import { usePreferences } from '../../context/AppPreferencesContext';
+import { useTranslation } from '../../hooks/useTranslation';
+import { APP_PALETTES } from '../../theme/palettes';
 
 interface AnimatedGlowButtonProps {
   title: string;
@@ -16,13 +18,24 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
   onPress,
   icon,
 }) => {
+  const { theme, isDark, language, palette: activePaletteId } = usePreferences();
+  const { t } = useTranslation();
+  const isRTL = language === 'ar';
+
+  // Récupérer la palette active et ses couleurs lumière / sombre
+  const activePalette = APP_PALETTES.find((p) => p.id === activePaletteId) || APP_PALETTES[0];
+  const paletteColors = isDark ? activePalette.dark : activePalette.light;
+  const primaryColor = paletteColors.primary;
+  const secondaryColor = paletteColors.secondary;
+  const shadowColor = isDark ? primaryColor : paletteColors.shadowColor;
+
   const pressScale = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
   const orbRotate = useRef(new Animated.Value(0)).current;
   const sweepAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // 1. Neon cyan/violet border pulse breathing
+    // 1. Neon pulse breathing
     const glowLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
@@ -40,7 +53,7 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
       ])
     );
 
-    // 2. Smooth 360-degree rotating 3D iridescent orb (WIN Logo colors)
+    // 2. Smooth 360-degree rotating 3D iridescent orb
     const rotateLoop = Animated.loop(
       Animated.timing(orbRotate, {
         toValue: 1,
@@ -86,7 +99,7 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
 
   const sweepTranslateX = sweepAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [-150, 350],
+    outputRange: isRTL ? [350, -150] : [-150, 350],
   });
 
   const handlePressIn = () => {
@@ -103,22 +116,35 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={0.92}
+      accessibilityRole="button"
+      accessibilityLabel={title}
     >
       <Animated.View
         style={[
           styles.glowWrapper,
           {
+            shadowColor: shadowColor,
+            shadowOpacity: isDark ? 0.45 : 0.22,
             transform: [{ scale: pressScale }],
           },
         ]}
       >
-        <View style={styles.cyberContainer}>
-          {/* Pulsing neon border overlay (Electric Cyan -> Violet undertones) */}
+        <View
+          style={[
+            styles.cyberContainer,
+            {
+              backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+              borderColor: isDark ? 'rgba(255, 255, 255, 0.12)' : `${primaryColor}35`,
+            },
+          ]}
+        >
+          {/* Pulsing neon border overlay adapté à la couleur secondaire de la palette */}
           <Animated.View
             pointerEvents="none"
             style={[
               styles.borderGlowOverlay,
               {
+                borderColor: secondaryColor,
                 opacity: glowAnim.interpolate({
                   inputRange: [0, 1],
                   outputRange: [0.35, 0.95],
@@ -127,27 +153,56 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
             ]}
           />
 
-          {/* Luminous Light Glass Backdrop */}
-          <View style={styles.deepBackdrop} />
+          {/* Luminous Light/Dark Glass Backdrop */}
+          <View
+            style={[
+              styles.deepBackdrop,
+              {
+                backgroundColor: isDark ? 'rgba(30, 41, 59, 0.5)' : 'rgba(255, 255, 255, 0.3)',
+              },
+            ]}
+          />
 
-          {/* Soft Luminous corner accents matching WIN logo */}
-          <View style={[styles.cornerGlow, styles.cornerTopRight]} />
-          <View style={[styles.cornerGlow, styles.cornerBottomLeft]} />
+          {/* Soft Luminous corner accents harmonisés avec la palette active */}
+          <View
+            style={[
+              styles.cornerGlow,
+              isRTL ? styles.cornerTopLeft : styles.cornerTopRight,
+              { backgroundColor: `${secondaryColor}25` },
+            ]}
+          />
+          <View
+            style={[
+              styles.cornerGlow,
+              isRTL ? styles.cornerBottomRight : styles.cornerBottomLeft,
+              { backgroundColor: `${primaryColor}20` },
+            ]}
+          />
 
           {/* Shimmer light beam sweep */}
           <Animated.View
             style={[
               styles.shimmerBeam,
               {
-                transform: [{ translateX: sweepTranslateX }, { skewX: '-20deg' }],
+                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.5)',
+                transform: [{ translateX: sweepTranslateX }, { skewX: isRTL ? '20deg' : '-20deg' }],
               },
             ]}
           />
 
-          {/* Content Row */}
-          <View style={styles.contentRow}>
+          {/* Content Row avec support RTL */}
+          <View style={[styles.contentRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
             {/* 3D Iridescent Rotating Holographic Orb */}
-            <View style={styles.badgeWrapper}>
+            <View
+              style={[
+                styles.badgeWrapper,
+                {
+                  backgroundColor: isDark ? '#1E293B' : '#FFFFFF',
+                  borderColor: `${primaryColor}50`,
+                  shadowColor: primaryColor,
+                },
+              ]}
+            >
               <Animated.View style={[styles.orbRotateWrapper, { transform: [{ rotate: spin }] }]}>
                 {icon ? (
                   icon
@@ -160,23 +215,52 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
                 )}
               </Animated.View>
               {/* Iridescent glass rim reflection */}
-              <View style={styles.orbGlassRing} />
+              <View
+                style={[
+                  styles.orbGlassRing,
+                  { borderColor: isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(255, 255, 255, 0.7)' },
+                ]}
+              />
             </View>
 
-            {/* Text details */}
+            {/* Text details avec couleurs mode sombre et typographie dynamique */}
             <View style={styles.textContainer}>
-              <View style={styles.titleRow}>
-                <Text style={styles.title}>{title}</Text>
-                <View style={styles.magicPill}>
-                  <Text style={styles.magicText}>AI · مخصص</Text>
-                </View>
+              <View style={[styles.titleRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
+                <Text style={[styles.title, { color: isDark ? '#F8FAFC' : '#0F172A' }]}>
+                  {title}
+                </Text>
+           
               </View>
-              {!!subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+              {!!subtitle && (
+                <Text
+                  style={[
+                    styles.subtitle,
+                    {
+                      color: isDark ? '#94A3B8' : '#475569',
+                      textAlign: isRTL ? 'right' : 'left',
+                    },
+                  ]}
+                  numberOfLines={2}
+                >
+                  {subtitle}
+                </Text>
+              )}
             </View>
 
-            {/* Arrow chevron with WIN Violet accent */}
-            <View style={styles.arrowBox}>
-              <Ionicons name="arrow-forward" size={18} color="#7C3AED" />
+            {/* Arrow chevron adapté à la palette et à la direction RTL */}
+            <View
+              style={[
+                styles.arrowBox,
+                {
+                  backgroundColor: isDark ? `${primaryColor}25` : `${primaryColor}14`,
+                },
+              ]}
+            >
+              <Ionicons
+                name={isRTL ? 'arrow-back' : 'arrow-forward'}
+                size={18}
+                color={isDark ? secondaryColor : primaryColor}
+              />
             </View>
           </View>
         </View>
@@ -188,8 +272,6 @@ export const AnimatedGlowButton: React.FC<AnimatedGlowButtonProps> = ({
 const styles = StyleSheet.create({
   glowWrapper: {
     borderRadius: 24,
-    shadowColor: WIN_COLORS.violet,
-    shadowOpacity: 0.22,
     shadowRadius: 18,
     shadowOffset: { width: 0, height: 6 },
     elevation: 10,
@@ -198,15 +280,12 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     borderRadius: 24,
     borderWidth: 2,
-    borderColor: 'rgba(0, 210, 255, 0.85)',
     zIndex: 5,
   },
   cyberContainer: {
     minHeight: 76,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: 'rgba(124, 58, 237, 0.3)',
-    backgroundColor: '#FFFFFF',
     overflow: 'hidden',
     justifyContent: 'center',
     paddingHorizontal: 16,
@@ -215,7 +294,6 @@ const styles = StyleSheet.create({
   },
   deepBackdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
   },
   cornerGlow: {
     position: 'absolute',
@@ -226,22 +304,26 @@ const styles = StyleSheet.create({
   cornerTopRight: {
     top: -50,
     right: -30,
-    backgroundColor: 'rgba(0, 210, 255, 0.25)', // WIN Electric Cyan
+  },
+  cornerTopLeft: {
+    top: -50,
+    left: -30,
   },
   cornerBottomLeft: {
     bottom: -60,
     left: -30,
-    backgroundColor: 'rgba(124, 58, 237, 0.2)', // WIN Neon Violet
+  },
+  cornerBottomRight: {
+    bottom: -60,
+    right: -30,
   },
   shimmerBeam: {
     position: 'absolute',
     top: 0,
     bottom: 0,
     width: 75,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   contentRow: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     zIndex: 10,
@@ -250,12 +332,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#FFFFFF',
     borderWidth: 1.5,
-    borderColor: 'rgba(124, 58, 237, 0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7C3AED',
     shadowOpacity: 0.35,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -280,38 +359,31 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.65)',
     pointerEvents: 'none',
   },
   textContainer: {
     flex: 1,
   },
   titleRow: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
   title: {
-    color: '#0F172A',
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: 0.2,
   },
   magicPill: {
-    backgroundColor: 'rgba(124, 58, 237, 0.1)',
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.28)',
   },
   magicText: {
-    color: '#7C3AED',
     fontSize: 10,
     fontWeight: '800',
   },
   subtitle: {
-    color: '#475569',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 3,
@@ -321,7 +393,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(124, 58, 237, 0.1)',
     alignItems: 'center',
     justifyContent: 'center',
   },

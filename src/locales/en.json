@@ -235,5 +235,20 @@
   "pasteImageUrlPlaceholder": "https://example.com/my-photo.jpg",
   "saveAvatar": "Apply this photo",
   "avatarUpdatedSuccess": "Profile photo updated!",
-  "cancel": "Cancel"
+  "cancel": "Cancel",
+  "colorPaletteTitle": "Theme & Color Palette",
+  "colorPaletteSubtitle": "Choose your favorite visual theme for the entire app",
+  "paletteWinOriginal": "WIN Signature",
+  "paletteWinOriginalDesc": "Signature pastel, cyan & violet harmony",
+  "paletteSidiBouSaid": "Sidi Bou Said",
+  "paletteSidiBouSaidDesc": "Mediterranean cobalt blue & pure whitewashed cliff vibes",
+  "paletteSunsetCarthage": "Carthage Sunset",
+  "paletteSunsetCarthageDesc": "Golden amber dusk, warm coral & terracotta glow",
+  "paletteOasisTozeur": "Tozeur Oasis",
+  "paletteOasisTozeurDesc": "Lush emerald palm groves & desert oasis freshness",
+  "paletteRoseFlamingo": "Pink Flamingo",
+  "paletteRoseFlamingoDesc": "Enchanted pink salt lake horizons & soft magenta",
+  "paletteActiveBadge": "Active",
+  "paletteSaveDone": "Done",
+  "aiCustomBadge": "AI · Custom"
 }

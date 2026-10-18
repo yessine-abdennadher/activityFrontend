@@ -309,6 +309,7 @@ export interface PartnerActivitiesResponse {
   count: number;
   stats: PartnerStats;
   activities: PartnerActivityItem[];
+  partnerTier?: PartnerTier;
 }
 
 export interface PartnerActivityInput {

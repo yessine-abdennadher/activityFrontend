@@ -1,11 +1,44 @@
 /**
  * storage.ts
  * Adaptateur de stockage persistant universel (Web & Mobile).
- * Permet de sauvegarder de façon résiliente la session utilisateur et les préférences.
+ *
+ * Architecture de stockage :
+ * 1. SecureStore (Matériel chiffré : Keychain iOS / Keystore Android) :
+ *    - Réservé aux secrets critiques et jetons d'authentification (ACCESS_TOKEN, REFRESH_TOKEN).
+ *    - Conforme aux standards de sécurité OWASP Mobile (MASVS-STORAGE).
+ *
+ * 2. AsyncStorage (Stockage persistant haute performance) :
+ *    - Utilisé pour le profil utilisateur (CURRENT_USER) et les préférences (LANGUAGE, THEME_MODE, THEME_PALETTE).
+ *    - Évite le crash Android lié à la limite stricte de 2048 octets imposée par SecureStore (SharedPreferences).
+ *    - Offre un temps d'accès quasi-instantané au démarrage sans surcharge cryptographique matérielle.
+ *
+ * 3. Migration transparente automatique :
+ *    - Si une clé non-sensible était précédemment stockée dans SecureStore, elle est lue, migrée
+ *      vers AsyncStorage, et purgée de SecureStore.
  */
 
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+export const STORAGE_KEYS = {
+  ACCESS_TOKEN: 'activitytn_access_token',
+  REFRESH_TOKEN: 'activitytn_refresh_token',
+  CURRENT_USER: 'activitytn_current_user',
+  LANGUAGE: 'activitytn_pref_language',
+  THEME_MODE: 'activitytn_pref_theme_mode',
+  THEME_PALETTE: 'activitytn_pref_theme_palette',
+} as const;
+
+// Clés qui doivent obligatoirement être chiffrées dans le Keystore / Keychain
+const SECURE_KEYS = new Set<string>([
+  STORAGE_KEYS.ACCESS_TOKEN,
+  STORAGE_KEYS.REFRESH_TOKEN,
+]);
+
+function isSecureKey(key: string): boolean {
+  return SECURE_KEYS.has(key);
+}
 
 class MemoryStorage {
   private cache = new Map<string, string>();
@@ -38,10 +71,33 @@ export const Storage = {
         }
         return memoryFallback.getItem(key);
       }
-      // Sur iOS & Android : Stockage matériel chiffré (Keychain / Keystore)
-      return await SecureStore.getItemAsync(key);
+
+      // Mobile (iOS / Android) : Routage selon la sensibilité de la clé
+      if (isSecureKey(key)) {
+        return await SecureStore.getItemAsync(key);
+      }
+
+      // Données applicatives / Préférences : AsyncStorage
+      const asyncValue = await AsyncStorage.getItem(key);
+      if (asyncValue !== null) {
+        return asyncValue;
+      }
+
+      // Rétrocompatibilité : Migration fluide si la valeur était dans SecureStore
+      try {
+        const legacySecureValue = await SecureStore.getItemAsync(key);
+        if (legacySecureValue !== null) {
+          await AsyncStorage.setItem(key, legacySecureValue);
+          await SecureStore.deleteItemAsync(key).catch(() => {});
+          return legacySecureValue;
+        }
+      } catch {
+        // Ignorer l'erreur de fallback legacy
+      }
+
+      return null;
     } catch (err) {
-      console.warn(`[Storage] Erreur lecture sécurisée ${key}:`, err);
+      console.warn(`[Storage] Erreur lecture ${key}:`, err);
       return memoryFallback.getItem(key);
     }
   },
@@ -55,10 +111,17 @@ export const Storage = {
         memoryFallback.setItem(key, value);
         return;
       }
-      // Sur iOS & Android : Écriture chiffrée
-      await SecureStore.setItemAsync(key, value);
+
+      // Mobile (iOS / Android) : Routage selon la sensibilité de la clé
+      if (isSecureKey(key)) {
+        await SecureStore.setItemAsync(key, value);
+      } else {
+        await AsyncStorage.setItem(key, value);
+        // Nettoyage proactif de SecureStore si elle y existait auparavant
+        await SecureStore.deleteItemAsync(key).catch(() => {});
+      }
     } catch (err) {
-      console.warn(`[Storage] Erreur écriture sécurisée ${key}:`, err);
+      console.warn(`[Storage] Erreur écriture ${key}:`, err);
       memoryFallback.setItem(key, value);
     }
   },
@@ -72,9 +135,15 @@ export const Storage = {
         memoryFallback.removeItem(key);
         return;
       }
-      await SecureStore.deleteItemAsync(key);
+
+      if (isSecureKey(key)) {
+        await SecureStore.deleteItemAsync(key);
+      } else {
+        await AsyncStorage.removeItem(key);
+        await SecureStore.deleteItemAsync(key).catch(() => {});
+      }
     } catch (err) {
-      console.warn(`[Storage] Erreur suppression sécurisée ${key}:`, err);
+      console.warn(`[Storage] Erreur suppression ${key}:`, err);
       memoryFallback.removeItem(key);
     }
   },
@@ -96,12 +165,4 @@ export const Storage = {
       console.warn(`[Storage] Erreur setJson ${key}:`, err);
     }
   },
-};
-
-export const STORAGE_KEYS = {
-  ACCESS_TOKEN: 'activitytn_access_token',
-  REFRESH_TOKEN: 'activitytn_refresh_token',
-  CURRENT_USER: 'activitytn_current_user',
-  LANGUAGE: 'activitytn_pref_language',
-  THEME_MODE: 'activitytn_pref_theme_mode',
 };

@@ -1,4 +1,5 @@
 import { WIN_COLORS, WIN_GRADIENTS, WIN_GLASS } from './colors';
+import { APP_PALETTES, type PaletteId } from './palettes';
 
 export type GradientTuple = readonly [string, string, ...string[]];
 
@@ -72,3 +73,24 @@ export const darkTheme: ThemeColors = {
   pillBg: WIN_GLASS.pillBgDark,
   pillBorder: WIN_GLASS.pillBorderDark,
 };
+
+/**
+ * Génère dynamiquement le thème selon le mode (clair/sombre) et la palette de couleur active
+ */
+export function getAppTheme(mode: 'light' | 'dark', paletteId: PaletteId = 'win_original'): ThemeColors {
+  const base = mode === 'dark' ? darkTheme : lightTheme;
+  const palette = APP_PALETTES.find((p) => p.id === paletteId) || APP_PALETTES[0];
+  const overrides = mode === 'dark' ? palette.dark : palette.light;
+
+  return {
+    ...base,
+    primary: overrides.primary,
+    secondary: overrides.secondary,
+    headerBg: overrides.headerBg,
+    headerGradient: overrides.headerGradient,
+    primaryGradient: overrides.headerGradient,
+    buttonGradient: overrides.buttonGradient,
+    accentGradient: overrides.accentGradient,
+    shadowColor: overrides.shadowColor,
+  };
+}

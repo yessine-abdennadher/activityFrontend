@@ -235,5 +235,20 @@
   "pasteImageUrlPlaceholder": "https://example.com/my-photo.jpg",
   "saveAvatar": "حفظ هذه الصورة",
   "avatarUpdatedSuccess": "تم تحديث الصورة الشخصية بنجاح!",
-  "cancel": "إلغاء"
+  "cancel": "إلغاء",
+  "colorPaletteTitle": "لوحة الألوان والمظهر",
+  "colorPaletteSubtitle": "اختر الطابع اللوني المفضل لديك لكامل التطبيق",
+  "paletteWinOriginal": "وين الأصلية",
+  "paletteWinOriginalDesc": "تناغم الباستيل، السيان والبنفسجي الأيقوني",
+  "paletteSidiBouSaid": "سيدي بوسعيد",
+  "paletteSidiBouSaidDesc": "أزرق البحر الأبيض المتوسط وأبيض الجير الخالص",
+  "paletteSunsetCarthage": "غروب قرطاج",
+  "paletteSunsetCarthageDesc": "دفء شمس المغارب، العنبر والمرجان التونسي",
+  "paletteOasisTozeur": "واحة توزر",
+  "paletteOasisTozeurDesc": "زمرد بساتين النخيل وسحر الجنوب الصحراوي",
+  "paletteRoseFlamingo": "النحام الوردي",
+  "paletteRoseFlamingoDesc": "سحر بحيرات شط الجريد والوردي الحالم",
+  "paletteActiveBadge": "مفعل",
+  "paletteSaveDone": "تأكيد وحفظ",
+  "aiCustomBadge": "AI · مخصص"
 }

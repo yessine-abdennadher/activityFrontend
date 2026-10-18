@@ -1,19 +1,22 @@
 import React, { createContext, useContext, useState, useMemo } from 'react';
-import { lightTheme, darkTheme, ThemeColors } from '../theme/theme';
+import { getAppTheme, ThemeColors } from '../theme/theme';
+import { APP_PALETTES, type PaletteId } from '../theme/palettes';
 import { translations, Language, TranslationKey } from '../constants/translations';
-
 import { Storage, STORAGE_KEYS } from '../services/storage';
 import { fetchSystemStatus } from '../services/activityService';
 
 export type { Language } from '../constants/translations';
+export type { PaletteId } from '../theme/palettes';
 
 interface PreferencesContextType {
   mode: 'light' | 'dark';
   isDark: boolean;
   theme: ThemeColors;
+  palette: PaletteId;
   language: Language;
   electricityAlertActive: boolean;
   toggleDarkMode: () => void;
+  setPalette: (paletteId: PaletteId) => void;
   setLanguage: (lang: Language) => void;
   setElectricityAlertActive: (active: boolean) => void;
   refreshElectricityAlert: () => Promise<void>;
@@ -24,6 +27,7 @@ const PreferencesContext = createContext<PreferencesContextType | null>(null);
 
 export function AppPreferencesProvider({ children }: { children: React.ReactNode }) {
   const [mode, setMode] = useState<'light' | 'dark'>('light');
+  const [palette, setPaletteState] = useState<PaletteId>('win_original');
   const [language, setLanguageState] = useState<Language>('ar');
   const [electricityAlertActive, setElectricityAlertActive] = useState<boolean>(false);
 
@@ -44,6 +48,11 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
         setMode(savedMode);
       }
     });
+    Storage.getItem(STORAGE_KEYS.THEME_PALETTE).then((savedPalette) => {
+      if (savedPalette && APP_PALETTES.some((p) => p.id === savedPalette)) {
+        setPaletteState(savedPalette as PaletteId);
+      }
+    });
     Storage.getItem(STORAGE_KEYS.LANGUAGE).then((savedLang) => {
       if (savedLang === 'ar' || savedLang === 'fr' || savedLang === 'en') {
         setLanguageState(savedLang as Language);
@@ -60,12 +69,18 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
     });
   };
 
+  const setPalette = (newPalette: PaletteId) => {
+    setPaletteState(newPalette);
+    Storage.setItem(STORAGE_KEYS.THEME_PALETTE, newPalette);
+  };
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     Storage.setItem(STORAGE_KEYS.LANGUAGE, lang);
   };
 
-  const theme = mode === 'dark' ? darkTheme : lightTheme;
+  // Calcul dynamique du thème selon le mode (clair/sombre) et la palette de couleur
+  const theme = useMemo(() => getAppTheme(mode, palette), [mode, palette]);
 
   const t = (key: TranslationKey): string => {
     return translations[language][key] || translations['ar'][key] || key;
@@ -76,15 +91,17 @@ export function AppPreferencesProvider({ children }: { children: React.ReactNode
       mode,
       isDark: mode === 'dark',
       theme,
+      palette,
       language,
       electricityAlertActive,
       toggleDarkMode,
+      setPalette,
       setLanguage,
       setElectricityAlertActive,
       refreshElectricityAlert,
       t,
     }),
-    [mode, theme, language, electricityAlertActive, refreshElectricityAlert]
+    [mode, theme, palette, language, electricityAlertActive, refreshElectricityAlert]
   );
 
   return <PreferencesContext.Provider value={value}>{children}</PreferencesContext.Provider>;
@@ -98,6 +115,4 @@ export function usePreferences() {
   return context;
 }
 
-export function useAppPreferences() {
-  return usePreferences();
-}
+export const useAppPreferences = usePreferences;

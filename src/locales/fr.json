@@ -235,5 +235,20 @@
   "pasteImageUrlPlaceholder": "https://exemple.com/ma-photo.jpg",
   "saveAvatar": "Appliquer cette photo",
   "avatarUpdatedSuccess": "Photo de profil mise à jour !",
-  "cancel": "Annuler"
+  "cancel": "Annuler",
+  "colorPaletteTitle": "Palette de couleurs",
+  "colorPaletteSubtitle": "Personnalisez l’ambiance visuelle et les dégradés",
+  "paletteWinOriginal": "WIN Signature",
+  "paletteWinOriginalDesc": "L’élégance pastel, cyan & violette emblématique",
+  "paletteSidiBouSaid": "Sidi Bou Saïd",
+  "paletteSidiBouSaidDesc": "Bleu cobalt méditerranéen & blanc pur des falaises",
+  "paletteSunsetCarthage": "Carthage Sunset",
+  "paletteSunsetCarthageDesc": "Chaleur crépusculaire, ambre doré & corail vibrant",
+  "paletteOasisTozeur": "Oasis de Tozeur",
+  "paletteOasisTozeurDesc": "Émeraude luxuriant des palmeraies & fraîcheur du désert",
+  "paletteRoseFlamingo": "Flamant Rose",
+  "paletteRoseFlamingoDesc": "Poésie féerique des lacs salés de Chott El Jerid",
+  "paletteActiveBadge": "Actif",
+  "paletteSaveDone": "Terminé",
+  "aiCustomBadge": "IA · Sur-mesure"
 }

@@ -1,6 +1,6 @@
 import { getApiBaseUrl, getFallbackApiUrls, setApiBaseUrl } from './apiConfig';
 import { USER_PERMISSIONS } from '../types';
-import type { AuthUser, UserPermission, UserRole, UserType } from '../types';
+import type { AuthUser, UserPermission, UserRole, UserType, PartnerTier } from '../types';
 import { Storage, STORAGE_KEYS } from './storage';
 
 let accessToken: string | null = null;
@@ -42,6 +42,7 @@ function mapUser(user: {
   city?: string;
   role?: UserRole;
   userType?: UserType;
+  partnerTier?: PartnerTier;
   establishmentName?: string;
 }): AuthUser {
   const role: UserRole = user.role || 'user';
@@ -59,6 +60,7 @@ function mapUser(user: {
     city: user.city,
     role,
     userType: user.userType || computedUserType,
+    partnerTier: user.partnerTier || 'standard',
     establishmentName: user.establishmentName || '',
     permissions,
   };
@@ -298,5 +300,39 @@ export async function updateUserAvatar(newAvatarUrl: string): Promise<AuthUser |
     return null;
   }
 }
+
+/**
+ * Récupère le profil frais depuis le backend (/auth/me) et synchronise le cache local
+ */
+export async function fetchCurrentUserProfile(): Promise<AuthUser | null> {
+  if (!accessToken) {
+    return null;
+  }
+
+  try {
+    const response = await fetchAuthWithFallback('/auth/me', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = await response.json();
+    if (payload.success && payload.user) {
+      const mapped = mapUser(payload.user);
+      await Storage.setJson(STORAGE_KEYS.CURRENT_USER, mapped);
+      return mapped;
+    }
+  } catch (err: any) {
+    console.warn('[authService] Échec actualisation profil (/auth/me):', err.message);
+  }
+  return null;
+}
+
 
 

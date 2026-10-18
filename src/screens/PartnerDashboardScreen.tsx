@@ -33,15 +33,21 @@ import type {
 import { PartnerPowerModeSwitch } from '../components/partner/PartnerPowerModeSwitch';
 import { PartnerProPromoModal } from '../components/partner/PartnerProPromoModal';
 import { PartnerProEventModal } from '../components/partner/PartnerProEventModal';
+import { PartnerTierStatusCard } from '../components/partner/PartnerTierStatusCard';
+import { PartnerUpgradeModal } from '../components/partner/PartnerUpgradeModal';
+import { fetchCurrentUserProfile } from '../services/authService';
+import type { PartnerTier } from '../types';
 
 interface PartnerDashboardScreenProps {
   currentUser: AuthUser | null;
   onBack: () => void;
+  onUpdateUser?: (updated: AuthUser) => void;
 }
 
 export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   currentUser,
   onBack,
+  onUpdateUser,
 }) => {
   const { isDark, theme, electricityAlertActive } = usePreferences();
 
@@ -97,20 +103,52 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   const [eventPrice, setEventPrice] = useState('20');
   const [eventDesc, setEventDesc] = useState('Ambiance acoustique guitare & violon');
 
-  const isProPartner = currentUser?.partnerTier === 'pro' || currentUser?.partnerTier === 'premium';
-  const isPremiumPartner = currentUser?.partnerTier === 'premium';
+  // Modal Upgrade & Détails Forfait Partenaire
+  const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
+  const [targetUpgradeTier, setTargetUpgradeTier] = useState<'pro' | 'premium'>('pro');
+
+  // Palier temps réel dynamique (initialisé depuis le cache utilisateur puis synchronisé via l'API)
+  const [livePartnerTier, setLivePartnerTier] = useState<PartnerTier>(
+    currentUser?.partnerTier || 'standard'
+  );
+
+  useEffect(() => {
+    if (currentUser?.partnerTier) {
+      setLivePartnerTier(currentUser.partnerTier);
+    }
+  }, [currentUser?.partnerTier]);
+
+  const effectiveTier: PartnerTier = livePartnerTier || currentUser?.partnerTier || 'standard';
+  const isProPartner = effectiveTier === 'pro' || effectiveTier === 'premium';
+  const isPremiumPartner = effectiveTier === 'premium';
 
   const loadData = useCallback(async () => {
     try {
       setErrorMessage(null);
+      // 1. Récupérer les activités et le palier mis à jour par l'admin
       const res = await fetchPartnerMyActivities();
       setStats(res.stats);
       setActivities(res.activities);
+
+      if (res.partnerTier) {
+        setLivePartnerTier(res.partnerTier);
+      }
+
+      // 2. Synchroniser le profil complet (/auth/me) pour mettre à jour tout le contexte de l'application
+      const freshUser = await fetchCurrentUserProfile();
+      if (freshUser) {
+        if (freshUser.partnerTier) {
+          setLivePartnerTier(freshUser.partnerTier);
+        }
+        if (onUpdateUser) {
+          onUpdateUser(freshUser);
+        }
+      }
     } catch (err: any) {
       console.error('[PartnerDashboard] Erreur chargement:', err.message);
       setErrorMessage(err.message || 'Impossible de charger vos données établissement.');
     }
-  }, []);
+  }, [onUpdateUser]);
 
   useEffect(() => {
     setLoading(true);
@@ -186,10 +224,8 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
 
   const handleOpenPromo = (item: PartnerActivityItem) => {
     if (!isProPartner) {
-      Alert.alert(
-        '🔒 Fonctionnalité Partenaire Pro & Premium',
-        'L’ajout de promotions et réductions exclusives est réservé aux comptes Partenaire Pro & Premium ⭐. Veuillez contacter l’administrateur pour passer au statut Pro.'
-      );
+      setTargetUpgradeTier('pro');
+      setUpgradeModalVisible(true);
       return;
     }
     setPromoTarget(item);
@@ -224,11 +260,9 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   };
 
   const handleOpenEvent = (item: PartnerActivityItem) => {
-    if (!isPremiumPartner && !isProPartner) {
-      Alert.alert(
-        '🔒 Fonctionnalité Partenaire Premium',
-        'L’organisation d’événements et soirées musicales est réservée aux comptes Partenaire Premium 👑. Veuillez contacter l’administrateur pour passer au statut Premium.'
-      );
+    if (!isPremiumPartner) {
+      setTargetUpgradeTier('premium');
+      setUpgradeModalVisible(true);
       return;
     }
     setEventTarget(item);
@@ -365,10 +399,51 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
               <Text style={[styles.headerTitle, { color: theme.textMain }]} numberOfLines={1}>
                 {currentUser?.establishmentName || 'Espace Partenaire Pro'}
               </Text>
-              <View style={styles.partnerBadge}>
-                <Ionicons name="briefcase" size={11} color="#FFFFFF" />
-                <Text style={styles.partnerBadgeText}>PRO</Text>
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.partnerBadge,
+                  {
+                    backgroundColor:
+                      effectiveTier === 'premium'
+                        ? '#7C3AED'
+                        : effectiveTier === 'pro'
+                        ? '#EA580C'
+                        : '#475569',
+                  },
+                ]}
+                onPress={() => {
+                  setTargetUpgradeTier(
+                    effectiveTier === 'premium'
+                      ? 'premium'
+                      : isProPartner
+                      ? 'premium'
+                      : 'pro'
+                  );
+                  setUpgradeModalVisible(true);
+                }}
+                activeOpacity={0.8}
+                accessibilityRole="button"
+                accessibilityLabel="Détails du forfait partenaire"
+              >
+                <Ionicons
+                  name={
+                    effectiveTier === 'premium'
+                      ? 'ribbon'
+                      : effectiveTier === 'pro'
+                      ? 'star'
+                      : 'business'
+                  }
+                  size={11}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.partnerBadgeText}>
+                  {effectiveTier === 'premium'
+                    ? 'PREMIUM 👑'
+                    : effectiveTier === 'pro'
+                    ? 'PRO ⭐'
+                    : 'STANDARD'}
+                </Text>
+              </TouchableOpacity>
             </View>
             <Text style={[styles.headerSubtitle, { color: theme.textMuted }]}>
               {currentUser?.name} · {currentUser?.city || 'Tunisie'}
@@ -415,6 +490,25 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
             />
           }
         >
+          {/* Carte de Statut et Privilèges Partenaire */}
+          <PartnerTierStatusCard
+            tier={effectiveTier}
+            onPressUpgrade={(target) => {
+              setTargetUpgradeTier(target);
+              setUpgradeModalVisible(true);
+            }}
+            onPressInfo={() => {
+              setTargetUpgradeTier(
+                effectiveTier === 'premium'
+                  ? 'premium'
+                  : isProPartner
+                  ? 'premium'
+                  : 'pro'
+              );
+              setUpgradeModalVisible(true);
+            }}
+          />
+
           {/* Banner Établissement (ex: Restaurant / Café / Loisir) */}
           <View
             style={[
@@ -607,17 +701,39 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: 4,
-                            backgroundColor: isProPartner ? '#FEF2F2' : (isDark ? '#334155' : '#F1F5F9'),
+                            gap: 5,
+                            backgroundColor: isProPartner
+                              ? item.promotion?.isPromo
+                                ? '#FEF2F2'
+                                : isDark
+                                ? '#450A0A30'
+                                : '#FFF1F2'
+                              : isDark
+                              ? '#1E293B'
+                              : '#F1F5F9',
                             borderColor: isProPartner ? '#F87171' : theme.cardBorder,
                             borderWidth: 1,
-                            paddingVertical: 7,
+                            paddingVertical: 8,
                             borderRadius: 10,
                           }}
                         >
-                          <Ionicons name={isProPartner ? "pricetag" : "lock-closed"} size={13} color={isProPartner ? "#DC2626" : "#64748B"} />
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: isProPartner ? "#DC2626" : "#64748B" }}>
-                            {isProPartner ? '🏷️ Gérer Promo' : '🔒 Promo (Pro)'}
+                          <Ionicons
+                            name={isProPartner ? 'pricetag' : 'lock-closed'}
+                            size={13}
+                            color={isProPartner ? '#DC2626' : theme.textMuted}
+                          />
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: '800',
+                              color: isProPartner ? '#DC2626' : theme.textMuted,
+                            }}
+                          >
+                            {isProPartner
+                              ? item.promotion?.isPromo
+                                ? `🏷️ Promo (-${item.promotion.discountPercent}%)`
+                                : '🏷️ Gérer Promo'
+                              : '🔒 Promo % (Pro)'}
                           </Text>
                         </TouchableOpacity>
 
@@ -628,17 +744,37 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                             flexDirection: 'row',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            gap: 4,
-                            backgroundColor: isProPartner ? '#FDF2F8' : (isDark ? '#334155' : '#F1F5F9'),
-                            borderColor: isProPartner ? '#F472B6' : theme.cardBorder,
+                            gap: 5,
+                            backgroundColor: isPremiumPartner
+                              ? isDark
+                                ? '#3B076430'
+                                : '#FAF5FF'
+                              : isDark
+                              ? '#1E293B'
+                              : '#F1F5F9',
+                            borderColor: isPremiumPartner ? '#C084FC' : theme.cardBorder,
                             borderWidth: 1,
-                            paddingVertical: 7,
+                            paddingVertical: 8,
                             borderRadius: 10,
                           }}
                         >
-                          <Ionicons name={isProPartner ? "musical-notes" : "lock-closed"} size={13} color={isProPartner ? "#DB2777" : "#64748B"} />
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: isProPartner ? "#DB2777" : "#64748B" }}>
-                            {isProPartner ? '🎵 Soirée Live' : '🔒 Soirée (Pro)'}
+                          <Ionicons
+                            name={isPremiumPartner ? 'musical-notes' : 'lock-closed'}
+                            size={13}
+                            color={isPremiumPartner ? '#9333EA' : theme.textMuted}
+                          />
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              fontWeight: '800',
+                              color: isPremiumPartner ? '#9333EA' : theme.textMuted,
+                            }}
+                          >
+                            {isPremiumPartner
+                              ? item.events && item.events.length > 0
+                                ? `🎵 Soirée (${item.events[0].title.slice(0, 10)}...)`
+                                : '🎵 Soirée Live'
+                              : '🔒 Soirée (VIP 👑)'}
                           </Text>
                         </TouchableOpacity>
                       </View>
@@ -918,6 +1054,14 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         onDescChange={setEventDesc}
         onClose={() => setEventModalVisible(false)}
         onSave={handleSaveEvent}
+      />
+
+      {/* MODAL INFORMATION & UPGRADE PALIER PARTENAIRE */}
+      <PartnerUpgradeModal
+        visible={upgradeModalVisible}
+        currentTier={effectiveTier}
+        targetTier={targetUpgradeTier}
+        onClose={() => setUpgradeModalVisible(false)}
       />
     </View>
   );

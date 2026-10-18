@@ -37,15 +37,18 @@ import {
   PartnerTier,
 } from '../types';
 import { AdminDiagnosticsTab } from '../components/admin/AdminDiagnosticsTab';
+import { PartnerTierModal } from '../components/admin/PartnerTierModal';
 
 interface AdminDashboardScreenProps {
   currentUser: AuthUser | null;
   onBack: () => void;
+  onUpdateUser?: (updated: AuthUser) => void;
 }
 
 export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   currentUser,
   onBack,
+  onUpdateUser,
 }) => {
   const { isDark, theme, language, setElectricityAlertActive } = usePreferences();
 
@@ -73,6 +76,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   // Role selection modal for users
   const [selectedUserForRole, setSelectedUserForRole] = useState<AdminUser | null>(null);
   const [roleModalVisible, setRoleModalVisible] = useState(false);
+
+  // Partner tier assignment modal
+  const [selectedPartnerForTier, setSelectedPartnerForTier] = useState<AdminUser | null>(null);
+  const [partnerTierModalVisible, setPartnerTierModalVisible] = useState(false);
 
   // Load KPI Stats
   const loadStats = useCallback(async () => {
@@ -125,38 +132,52 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
     }
   }, [userRoleFilter, userSearch]);
 
-  // Basculer le statut Partenaire Standard / Pro / Premium
-  const handleTogglePartnerTier = async (partnerId: string, currentTier?: string) => {
-    const nextTier: PartnerTier =
-      currentTier === 'standard' || !currentTier
-        ? 'pro'
-        : currentTier === 'pro'
-        ? 'premium'
-        : 'standard';
-
+  // Enregistrer le nouveau statut Partenaire (Standard / Pro / Premium) via le modal développé
+  const handleSavePartnerTier = async (partnerId: string, newTier: PartnerTier) => {
     try {
-      await updatePartnerTier(partnerId, nextTier);
+      await updatePartnerTier(partnerId, newTier);
       if (diagnosticsData?.partnersStatus) {
         setDiagnosticsData({
           ...diagnosticsData,
           partnersStatus: diagnosticsData.partnersStatus.map((p: any) =>
-            p.id === partnerId ? { ...p, partnerTier: nextTier } : p
+            p.id === partnerId ? { ...p, partnerTier: newTier } : p
           ),
         });
       }
       setUsers((prevUsers) =>
-        prevUsers.map((u) => (u._id === partnerId ? { ...u, partnerTier: nextTier } : u))
+        prevUsers.map((u) => (u._id === partnerId ? { ...u, partnerTier: newTier } : u))
       );
+      if (partnerId === currentUser?.id && onUpdateUser) {
+        onUpdateUser({ ...currentUser, partnerTier: newTier });
+      }
       const tierTitle =
-        nextTier === 'premium'
-          ? 'PREMIUM 👑 (Soirées & Promos)'
-          : nextTier === 'pro'
-          ? 'PRO ⭐ (Promos exclusives)'
-          : 'STANDARD (Gratuit de base)';
-      Alert.alert('Palier Partenaire Mis à Jour 🎉', `Le partenaire est désormais en compte : ${tierTitle}`);
+        newTier === 'premium'
+          ? 'PREMIUM 👑 (Soirées, Événements & Tête d\'affiche)'
+          : newTier === 'pro'
+          ? 'PRO ⭐ (Promos exclusives & Badge)'
+          : 'STANDARD (Présence de base)';
+      Alert.alert('Palier Partenaire Mis à Jour 🎉', `Le partenaire est désormais attribué au palier : ${tierTitle}`);
     } catch (err: any) {
       Alert.alert('Erreur', err.message || 'Impossible de mettre à jour le niveau du partenaire.');
+      throw err;
     }
+  };
+
+  // Ouvrir le modal d'attribution de palier depuis l'onglet Diagnostics
+  const handleTogglePartnerTier = (partnerId: string, currentTier?: string) => {
+    const partnerFromDiag = diagnosticsData?.partnersStatus?.find((p: any) => p.id === partnerId);
+    const partnerFromUsers = users.find((u) => u._id === partnerId);
+    const partnerObj: AdminUser = partnerFromUsers || {
+      _id: partnerId,
+      name: partnerFromDiag?.name || 'Partenaire',
+      email: partnerFromDiag?.email || '',
+      role: 'partner' as const,
+      isActive: true,
+      establishmentName: partnerFromDiag?.establishmentName,
+      partnerTier: (partnerFromDiag?.partnerTier || currentTier || 'standard') as PartnerTier,
+    };
+    setSelectedPartnerForTier(partnerObj);
+    setPartnerTierModalVisible(true);
   };
 
   // Activer ou désactiver le mode alerte coupure d'électricité (Plateforme globale)
@@ -903,7 +924,12 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                                   borderWidth: 1,
                                 },
                               ]}
-                              onPress={() => handleTogglePartnerTier(user._id, user.partnerTier)}
+                              onPress={() => {
+                                setSelectedPartnerForTier(user);
+                                setPartnerTierModalVisible(true);
+                              }}
+                              accessibilityRole="button"
+                              accessibilityLabel="Modifier le palier partenaire"
                             >
                               <Text
                                 style={[
@@ -915,6 +941,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                                         : user.partnerTier === 'pro'
                                         ? '#EA580C'
                                         : '#475569',
+                                    fontWeight: '800',
                                   },
                                 ]}
                               >
@@ -924,6 +951,18 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                                   ? '⭐ PRO'
                                   : 'STANDARD'}
                               </Text>
+                              <Ionicons
+                                name="create-outline"
+                                size={11}
+                                color={
+                                  user.partnerTier === 'premium'
+                                    ? '#9333EA'
+                                    : user.partnerTier === 'pro'
+                                    ? '#EA580C'
+                                    : '#64748B'
+                                }
+                                style={{ marginLeft: 3 }}
+                              />
                             </TouchableOpacity>
                           )}
                         </View>
@@ -1030,6 +1069,17 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* MODAL PALIER PARTENAIRE DÉVELOPPÉ (STANDARD / PRO / PREMIUM) */}
+      <PartnerTierModal
+        visible={partnerTierModalVisible}
+        partner={selectedPartnerForTier}
+        onClose={() => {
+          setPartnerTierModalVisible(false);
+          setSelectedPartnerForTier(null);
+        }}
+        onSaveTier={handleSavePartnerTier}
+      />
     </View>
   );
 };

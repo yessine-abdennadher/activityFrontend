@@ -13,6 +13,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { AvatarPickerModal } from '../components/profile/AvatarPickerModal';
+import { PalettePickerModal } from '../components/profile/PalettePickerModal';
+import { APP_PALETTES } from '../theme/palettes';
 import { updateUserAvatar } from '../services/authService';
 import type { AuthUser } from '../types';
 
@@ -35,13 +37,22 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
   onOpenAdminDashboard,
   onOpenPartnerDashboard,
 }) => {
-  const { isDark, theme, toggleDarkMode, language, setLanguage } = usePreferences();
+  const { isDark, theme, toggleDarkMode, language, setLanguage, palette } = usePreferences();
   const { t } = useTranslation();
   const isRTL = language === 'ar';
 
   const [avatarPickerVisible, setAvatarPickerVisible] = useState(false);
+  const [palettePickerVisible, setPalettePickerVisible] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [locationServicesEnabled, setLocationServicesEnabled] = useState(true);
+
+  const activePaletteObj = APP_PALETTES.find((p) => p.id === palette) || APP_PALETTES[0];
+  const paletteDisplayName =
+    language === 'ar'
+      ? activePaletteObj.nameAr
+      : language === 'en'
+      ? activePaletteObj.nameEn
+      : activePaletteObj.nameFr;
 
   const handleSelectAvatar = async (newAvatarUri: string) => {
     const updated = await updateUserAvatar(newAvatarUri);
@@ -286,6 +297,53 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
             />
           </View>
 
+          {/* Palette de Couleurs */}
+          <TouchableOpacity
+            style={[
+              styles.settingRow,
+              {
+                backgroundColor: theme.cardBg,
+                borderColor: theme.cardBorder,
+                flexDirection: isRTL ? 'row-reverse' : 'row',
+              },
+            ]}
+            onPress={() => setPalettePickerVisible(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Changer la palette de couleurs"
+          >
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 12 }}>
+              <Ionicons name="color-palette-outline" size={22} color={theme.primary} />
+              <View>
+                <Text style={[styles.settingText, { color: theme.textMain }]}>
+                  {t('colorPaletteTitle')}
+                </Text>
+                <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1, textAlign: isRTL ? 'right' : 'left' }}>
+                  {paletteDisplayName}
+                </Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: isRTL ? 'row-reverse' : 'row', alignItems: 'center', gap: 8 }}>
+              {/* Preview swatches */}
+              <View style={{ flexDirection: 'row', gap: 3 }}>
+                {activePaletteObj.previewColors.slice(0, 3).map((hex, i) => (
+                  <View
+                    key={i}
+                    style={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: 6,
+                      backgroundColor: hex,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.4)',
+                    }}
+                  />
+                ))}
+              </View>
+              <Ionicons name={isRTL ? 'chevron-back' : 'chevron-forward'} size={18} color={theme.textSub} />
+            </View>
+          </TouchableOpacity>
+
           {/* Notifications Switch */}
           <View
             style={[
@@ -397,6 +455,12 @@ export const ProfileScreen: React.FC<ProfileScreenProps> = ({
         currentAvatar={currentUser?.avatar}
         onClose={() => setAvatarPickerVisible(false)}
         onSelectAvatar={handleSelectAvatar}
+      />
+
+      {/* Modal développé de sélection de la palette de couleurs */}
+      <PalettePickerModal
+        visible={palettePickerVisible}
+        onClose={() => setPalettePickerVisible(false)}
       />
     </ScrollView>
   );

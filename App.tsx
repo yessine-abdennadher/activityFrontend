@@ -12,6 +12,7 @@ import {
   TextInput,
   StatusBar,
   Switch,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ import { queryClient, asyncStoragePersister } from './src/lib/queryClient';
 import { OfflineBanner } from './src/components/ui/OfflineBanner';
 import { useTranslation } from './src/hooks/useTranslation';
 import { ActivityCard } from './src/components/ActivityCard';
+import { CompactActivityCard } from './src/components/home/CompactActivityCard';
 import { FloatingTabBar } from './src/components/FloatingTabBar';
 import { AnimatedGlowButton } from './src/components/ui/AnimatedGlowButton';
 import { HomeScreenTab } from './src/screens/HomeScreenTab';
@@ -42,7 +44,7 @@ import { AdminDashboardScreen } from './src/screens/AdminDashboardScreen';
 import { PartnerDashboardScreen } from './src/screens/PartnerDashboardScreen';
 import { useActivities } from './src/hooks/useActivities';
 import type { Activity, AuthUser } from './src/types';
-import { logout as authLogout, restoreSession } from './src/services/authService';
+import { logout as authLogout, restoreSession, fetchCurrentUserProfile } from './src/services/authService';
 import { getUserFavorites, toggleActivityFavorite, localizeActivity } from './src/services/activityService';
 import { trackSessionStart, trackScreenView } from './src/services/telemetryService';
 
@@ -59,6 +61,16 @@ function MainContent({
   const { t } = useTranslation();
   const { activities } = useActivities();
   const { unreadCount } = useNotifications();
+  const { width: windowWidth } = useWindowDimensions();
+
+  // 2 cartes par rangée : calcul dynamique pour l'écran des favoris
+  const favoriteCardWidth = useMemo(() => {
+    if (windowWidth < 600) {
+      return Math.floor((windowWidth - 40 - 12) / 2);
+    }
+    return Math.min(240, Math.floor((windowWidth - 52) / 2));
+  }, [windowWidth]);
+
   const [activeTab, setActiveTab] = useState<'home' | 'explore' | 'favorites' | 'profile' | 'notifications'>('home');
   const [selectedCat, setSelectedCat] = useState('fun');
   const [mapVisible, setMapVisible] = useState(false);
@@ -205,6 +217,7 @@ function MainContent({
       <AdminDashboardScreen
         currentUser={currentUser}
         onBack={() => setAdminDashboardVisible(false)}
+        onUpdateUser={onUpdateUser}
       />
     );
   }
@@ -214,6 +227,7 @@ function MainContent({
       <PartnerDashboardScreen
         currentUser={currentUser}
         onBack={() => setPartnerDashboardVisible(false)}
+        onUpdateUser={onUpdateUser}
       />
     );
   }
@@ -260,21 +274,38 @@ function MainContent({
           />
         )}
 
-        {/* Screen 3: Favorites */}
+        {/* Screen 3: Favorites - 2 cartes par rangée & scroll vertical */}
         {activeTab === 'favorites' && (
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             <View style={{ padding: 20 }}>
-              <Text style={[styles.screenTitle, { color: theme.textMain }]}>{t('favoritesTitle')}</Text>
+              <View style={{ flexDirection: language === 'ar' ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+                <Text style={[styles.screenTitle, { color: theme.textMain }]}>{t('favoritesTitle')}</Text>
+                {favorites.length > 0 && (
+                  <View style={{ backgroundColor: `${theme.primary}18`, paddingHorizontal: 12, paddingVertical: 4, borderRadius: 12 }}>
+                    <Text style={{ color: theme.primary, fontWeight: '800', fontSize: 13 }}>
+                      {favorites.length} {language === 'ar' ? 'المفضلة' : 'favoris'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+
               {favorites.length === 0 ? (
-                <Text style={{ color: theme.textMuted, marginTop: 40, textAlign: 'center' }}>{t('noFavorites')}</Text>
+                <View style={{ alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 12 }}>
+                  <Ionicons name="heart-dislike-outline" size={54} color={theme.textMuted} />
+                  <Text style={{ color: theme.textMuted, fontSize: 15, fontWeight: '600', textAlign: 'center' }}>
+                    {t('noFavorites')}
+                  </Text>
+                </View>
               ) : (
-                <View style={{ marginTop: 20, gap: 16 }}>
+                <View style={{ flexDirection: language === 'ar' ? 'row-reverse' : 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 14 }}>
                   {localizedActivities.filter((a) => favorites.includes(a.id)).map((act) => (
-                    <ActivityCard
+                    <CompactActivityCard
                       key={act.id}
                       activity={act as any}
                       theme={theme}
                       isFavorite={true}
+                      width={favoriteCardWidth}
+                      showDistance={true}
                       onPress={() => setSelectedActivity(act)}
                       onToggleFavorite={() => toggleFav(act.id)}
                     />
@@ -330,10 +361,20 @@ export default function App() {
   useEffect(() => {
     let active = true;
     restoreSession()
-      .then((savedUser) => {
+      .then(async (savedUser) => {
         if (active && savedUser) {
           console.log(`[App] 🔑 Session restaurée automatiquement pour: ${savedUser.name} (${savedUser.email})`);
           setCurrentUser(savedUser);
+
+          // Rafraîchir en arrière-plan avec les dernières données serveur (tier partenaire, rôle, etc.)
+          try {
+            const freshUser = await fetchCurrentUserProfile();
+            if (active && freshUser) {
+              setCurrentUser(freshUser);
+            }
+          } catch {
+            // Mode hors-ligne ou réseau lent
+          }
         }
       })
       .catch((err) => {
