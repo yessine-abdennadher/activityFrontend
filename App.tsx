@@ -16,6 +16,28 @@ import {
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
+import {
+  Outfit_400Regular,
+  Outfit_500Medium,
+  Outfit_600SemiBold,
+  Outfit_700Bold,
+  Outfit_800ExtraBold,
+  Outfit_900Black,
+} from '@expo-google-fonts/outfit';
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+  Inter_700Bold,
+} from '@expo-google-fonts/inter';
+import {
+  NotoKufiArabic_400Regular,
+  NotoKufiArabic_500Medium,
+  NotoKufiArabic_600SemiBold,
+  NotoKufiArabic_700Bold,
+  NotoKufiArabic_800ExtraBold,
+} from '@expo-google-fonts/noto-kufi-arabic';
 import { AppPreferencesProvider, usePreferences } from './src/context/AppPreferencesContext';
 import { LocationProvider } from './src/context/LocationContext';
 import { ToastProvider } from './src/context/ToastContext';
@@ -71,6 +93,7 @@ function MainContent({
     isFetchingNextPage,
     refetch: refetchActivities,
     isRefetching,
+    isLoading: activitiesLoading,
   } = useInfiniteActivities();
   const { unreadCount } = useNotifications();
   const { width: windowWidth } = useWindowDimensions();
@@ -245,8 +268,11 @@ function MainContent({
     return (
       <PartnerDashboardScreen
         currentUser={currentUser}
-        onBack={() => {
+        onBack={async () => {
           setPartnerDashboardVisible(false);
+          try {
+            await queryClient.resetQueries({ queryKey: ['infinite-activities'] });
+          } catch {}
           refetchActivities();
         }}
         onUpdateUser={onUpdateUser}
@@ -285,6 +311,7 @@ function MainContent({
             onOpenChatbot={() => setActiveTab('chat')}
             onRefresh={refetchActivities}
             refreshing={isRefetching}
+            isLoading={activitiesLoading || (activities.length === 0 && !isRefetching)}
           />
         )}
 
@@ -299,6 +326,7 @@ function MainContent({
             onLoadMore={() => fetchNextPage()}
             hasMore={Boolean(hasNextPage)}
             isLoadingMore={isFetchingNextPage}
+            isLoading={activitiesLoading || (activities.length === 0 && !isRefetching)}
           />
         )}
 
@@ -348,6 +376,12 @@ function MainContent({
         {activeTab === 'chat' && (
           <ChatbotScreenTab
             onNavigateToHome={() => setActiveTab('home')}
+            onSelectActivityId={(activityId) => {
+              const found = activities.find((a) => a.id === activityId);
+              if (found) {
+                setSelectedActivity(found);
+              }
+            }}
           />
         )}
 
@@ -375,8 +409,10 @@ function MainContent({
           />
         )}
 
-        {/* ALWAYS VISIBLE FLOATING BOTTOM TAB BAR */}
-        <FloatingTabBar activeTab={activeTab} theme={theme} onTabChange={setActiveTab} notificationsCount={unreadCount} />
+        {/* FLOATING BOTTOM TAB BAR (Masquée dans le Chatbot pour immersion totale et ergonomie clavier optimale) */}
+        {activeTab !== 'chat' && (
+          <FloatingTabBar activeTab={activeTab} theme={theme} onTabChange={setActiveTab} notificationsCount={unreadCount} />
+        )}
       </>}
 
       {/* Modal de confirmation de déconnexion moderne & multi-plateforme */}
@@ -391,6 +427,25 @@ function MainContent({
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+
+  // Chargement officiel des polices Brand Book (Outfit, Inter & Noto Kufi Arabic)
+  const [fontsLoaded] = useFonts({
+    Outfit_400Regular,
+    Outfit_500Medium,
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    Outfit_800ExtraBold,
+    Outfit_900Black,
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+    Inter_700Bold,
+    NotoKufiArabic_400Regular,
+    NotoKufiArabic_500Medium,
+    NotoKufiArabic_600SemiBold,
+    NotoKufiArabic_700Bold,
+    NotoKufiArabic_800ExtraBold,
+  });
 
   // Restauration automatique de la session persistée (token + profil) au démarrage
   useEffect(() => {

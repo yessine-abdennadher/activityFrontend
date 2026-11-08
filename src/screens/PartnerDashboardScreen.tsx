@@ -35,9 +35,8 @@ import { PartnerProPromoModal } from '../components/partner/PartnerProPromoModal
 import { PartnerProEventModal } from '../components/partner/PartnerProEventModal';
 import { PartnerTierStatusCard } from '../components/partner/PartnerTierStatusCard';
 import { PartnerUpgradeModal } from '../components/partner/PartnerUpgradeModal';
+import { PartnerActivityModal, strip216 } from '../components/partner/PartnerActivityModal';
 import { fetchCurrentUserProfile } from '../services/authService';
-import * as ImagePicker from 'expo-image-picker';
-import { uploadImage } from '../services/uploadService';
 import { queryClient } from '../lib/queryClient';
 import type { PartnerTier } from '../types';
 
@@ -67,26 +66,9 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   });
   const [activities, setActivities] = useState<PartnerActivityItem[]>([]);
 
-  // Modal d'ajout / modification
+  // Modal modulaire d'établissement (création / modification)
   const [modalVisible, setModalVisible] = useState(false);
   const [editingActivity, setEditingActivity] = useState<PartnerActivityItem | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-
-  // Formulaire
-  const [uploadingImage, setUploadingImage] = useState(false);
-  const [formName, setFormName] = useState('');
-  const [formCategory, setFormCategory] = useState('food');
-  const [formCity, setFormCity] = useState(currentUser?.city || 'Sfax');
-  const [formPrice, setFormPrice] = useState('25');
-  const [formImageUrl, setFormImageUrl] = useState('');
-  const [formPhone, setFormPhone] = useState('+216 ');
-  const [formWhatsapp, setFormWhatsapp] = useState('+216 ');
-  const [formDescription, setFormDescription] = useState('');
-  const [formHasAc, setFormHasAc] = useState(true);
-  const [formHasPower, setFormHasPower] = useState(true);
-  const [formOpeningTime, setFormOpeningTime] = useState('09:00');
-  const [formClosingTime, setFormClosingTime] = useState('23:00');
-  const [formOpenDays, setFormOpenDays] = useState('Tous les jours');
 
   // Modal Promo Pro & Premium
   const [promoModalVisible, setPromoModalVisible] = useState(false);
@@ -167,89 +149,21 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
 
   const openCreateModal = () => {
     setEditingActivity(null);
-    setFormName('');
-    setFormCategory('food');
-    setFormCity(currentUser?.city || 'Sfax');
-    setFormPrice('25');
-    setFormImageUrl('');
-    setFormPhone('+216 74 123 456');
-    setFormWhatsapp('+216 98 123 456');
-    setFormDescription('Découvrez nos spécialités gourmandes, cadre chaleureux et service soigné.');
-    setFormHasAc(true);
-    setFormHasPower(true);
-    setFormOpeningTime('09:00');
-    setFormClosingTime('23:00');
-    setFormOpenDays('Tous les jours');
     setModalVisible(true);
   };
 
   const openEditModal = (item: PartnerActivityItem) => {
     setEditingActivity(item);
-    setFormName(item.name || '');
-    setFormCategory(item.category || 'food');
-    setFormCity(item.city || 'Sfax');
-    setFormPrice(String(item.price || 0));
-    setFormImageUrl(item.imageUrl || item.image || '');
-    setFormPhone(item.phone || '');
-    setFormWhatsapp(item.whatsapp || '');
-    setFormDescription(item.description || '');
-    setFormHasAc(Boolean(item.hasAirConditioning));
-    setFormHasPower(Boolean(item.hasPowerBackup));
-    setFormOpeningTime(item.openingTime || '09:00');
-    setFormClosingTime(item.closingTime || '23:00');
-    setFormOpenDays(item.openDays && item.openDays.length > 0 ? item.openDays[0] : 'Tous les jours');
     setModalVisible(true);
-  };
-
-  const handlePickImage = async () => {
-    try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permission requise',
-          'Veuillez autoriser l’accès à vos photos pour pouvoir sélectionner et uploader une image pour votre offre.'
-        );
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [16, 9],
-        quality: 0.8,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        if (!asset.base64) {
-          Alert.alert('Erreur', 'Impossible de récupérer les données base64 de l’image sélectionnée.');
-          return;
-        }
-
-        setUploadingImage(true);
-        const mimeType = asset.mimeType || 'image/jpeg';
-        const base64Data = `data:${mimeType};base64,${asset.base64}`;
-
-        const uploadRes = await uploadImage(base64Data, 'activities');
-        if (uploadRes && uploadRes.url) {
-          setFormImageUrl(uploadRes.url);
-          Alert.alert('Succès ! 📸', 'Votre photo a été téléversée avec succès sur Cloudinary.');
-        }
-      }
-    } catch (err: any) {
-      console.error('[PartnerDashboard] Erreur upload image:', err.message);
-      Alert.alert('Échec de l’upload', err.message || 'Une erreur est survenue lors de l’upload de l’image.');
-    } finally {
-      setUploadingImage(false);
-    }
   };
 
   const invalidateAppQueries = async () => {
     try {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['infinite-activities'] }),
-        queryClient.invalidateQueries({ queryKey: ['activities'] }),
+        queryClient.resetQueries({ queryKey: ['infinite-activities'] }),
+        queryClient.refetchQueries({ queryKey: ['infinite-activities'] }),
+        queryClient.resetQueries({ queryKey: ['activities'] }),
+        queryClient.refetchQueries({ queryKey: ['activities'] }),
       ]);
     } catch (e) {
       console.warn('[PartnerDashboard] Erreur invalidation cache:', e);
@@ -363,41 +277,14 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
     }
   };
 
-  const handleSaveActivity = async () => {
-    if (!formName.trim()) {
-      Alert.alert('Champs requis', 'Veuillez saisir le nom de votre offre ou activité.');
-      return;
-    }
-    if (!formImageUrl.trim()) {
-      Alert.alert('Photo requise 📷', 'Veuillez sélectionner une photo pour votre offre depuis votre galerie.');
-      return;
-    }
-    const parsedPrice = parseFloat(formPrice) || 0;
-
-    const payload: PartnerActivityInput = {
-      name: formName.trim(),
-      category: formCategory,
-      city: formCity.trim(),
-      price: parsedPrice,
-      imageUrl: formImageUrl.trim(),
-      phone: formPhone.trim(),
-      whatsapp: formWhatsapp.trim(),
-      description: formDescription.trim(),
-      hasAirConditioning: formHasAc,
-      hasPowerBackup: formHasPower,
-      openingTime: formOpeningTime.trim(),
-      closingTime: formClosingTime.trim(),
-      openDays: [formOpenDays.trim()],
-    };
-
-    setSubmitting(true);
+  const handleSaveActivity = async (payload: PartnerActivityInput) => {
     try {
       if (editingActivity) {
         const updated = await updatePartnerActivity(editingActivity._id, payload);
         setActivities((prev) =>
           prev.map((a) => (a._id === editingActivity._id ? { ...a, ...updated } : a))
         );
-        Alert.alert('Succès', 'Votre offre a été mise à jour.');
+        Alert.alert('Succès 🎉', 'Votre établissement a été mis à jour.');
       } else {
         const created = await createPartnerActivity(payload);
         setActivities((prev) => [created, ...prev]);
@@ -407,16 +294,14 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
           pending: prev.pending + 1,
         }));
         Alert.alert(
-          'Offre enregistrée',
-          'Votre offre a été soumise avec succès. Elle sera visible une fois modérée par nos équipes.'
+          'Établissement enregistré 🎉',
+          'Votre établissement a été soumis avec succès. Il sera visible dès validation par la modération.'
         );
       }
       await invalidateAppQueries();
       setModalVisible(false);
     } catch (err: any) {
       Alert.alert('Erreur', err.message || "Impossible d'enregistrer l'activité.");
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -607,7 +492,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
               activeOpacity={0.8}
             >
               <Ionicons name="add-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.addCtaText}>+ Nouvelle Offre / Activité</Text>
+              <Text style={styles.addCtaText}>+ Ajouter un établissement / lieu</Text>
             </TouchableOpacity>
           </View>
 
@@ -615,7 +500,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
           <View style={styles.kpiGrid}>
             <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <Text style={[styles.kpiValue, { color: theme.textMain }]}>{stats.total}</Text>
-              <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>Offres Créées</Text>
+              <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>Établissements</Text>
               <Text style={[styles.kpiSub, { color: '#10B981' }]}>{stats.approved} en ligne</Text>
             </View>
 
@@ -637,7 +522,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
           {/* Liste des Activités du Partenaire */}
           <View style={styles.sectionHeaderRow}>
             <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
-              Catalogue de vos Offres ({activities.length})
+              Vos Établissements & Lieux ({activities.length})
             </Text>
           </View>
 
@@ -645,13 +530,13 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
             <View style={[styles.emptyContainer, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
               <Ionicons name="restaurant-outline" size={48} color={theme.textMuted} />
               <Text style={[styles.emptyTitle, { color: theme.textMain }]}>
-                Aucune offre publiée pour le moment
+                Aucun établissement enregistré pour le moment
               </Text>
               <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
-                Ajoutez dès maintenant votre premier menu, plat vedette ou formule loisir pour attirer de nouveaux clients !
+                Ajoutez dès maintenant votre restaurant, salon de thé ou formule loisir pour attirer de nouveaux clients !
               </Text>
               <TouchableOpacity style={styles.emptyAddBtn} onPress={openCreateModal}>
-                <Text style={styles.emptyAddBtnText}>Ajouter ma première offre</Text>
+                <Text style={styles.emptyAddBtnText}>Ajouter mon premier établissement</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -705,7 +590,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                               <Text style={styles.amenityText}>❄️ Clim</Text>
                             </View>
                           )}
-                          {item.hasPowerBackup && (
+                          {electricityAlertActive && item.hasPowerBackup && (
                             <View style={styles.amenityChip}>
                               <Text style={styles.amenityText}>⚡ Générateur</Text>
                             </View>
@@ -853,7 +738,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                       {item.phone && (
                         <View style={styles.contactPreview}>
                           <Ionicons name="call" size={13} color="#10B981" />
-                          <Text style={[styles.contactText, { color: theme.textMuted }]}>{item.phone}</Text>
+                          <Text style={[styles.contactText, { color: theme.textMuted }]}>{strip216(item.phone)}</Text>
                         </View>
                       )}
 
@@ -882,288 +767,17 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         </ScrollView>
       )}
 
-      {/* Modal d'Ajout / Modification d'une offre */}
-      <Modal
+      {/* MODAL MODULAIRE ÉTABLISSEMENT / LIEU PARTENAIRE */}
+      <PartnerActivityModal
         visible={modalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: theme.textMain }]}>
-                {editingActivity ? "Modifier l'offre" : "Nouvelle Offre / Activité"}
-              </Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={theme.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-              {/* Nom */}
-              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Nom de l'offre ou du plat :</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                placeholder="Ex: Menu Dégustation Fruits de Mer"
-                placeholderTextColor={theme.textMuted}
-                value={formName}
-                onChangeText={setFormName}
-              />
-
-              {/* Catégorie */}
-              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Catégorie :</Text>
-              <View style={styles.categoryRow}>
-                {[
-                  { key: 'food', label: '🍽️ Food & Restaurant' },
-                  { key: 'fun', label: '🎳 Loisirs' },
-                  { key: 'relax', label: '☕ Café & Détente' },
-                  { key: 'outdoor', label: '🌿 Outdoor' },
-                ].map((c) => (
-                  <TouchableOpacity
-                    key={c.key}
-                    style={[
-                      styles.categoryChip,
-                      formCategory === c.key
-                        ? { backgroundColor: theme.primary }
-                        : { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', borderColor: theme.cardBorder, borderWidth: 1 },
-                    ]}
-                    onPress={() => setFormCategory(c.key)}
-                  >
-                    <Text
-                      style={[
-                        styles.categoryChipText,
-                        { color: formCategory === c.key ? '#FFFFFF' : theme.textMain },
-                      ]}
-                    >
-                      {c.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Prix & Ville */}
-              <View style={styles.rowTwoCols}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Prix par pers. (DT) :</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                    keyboardType="numeric"
-                    placeholder="Ex: 35"
-                    placeholderTextColor={theme.textMuted}
-                    value={formPrice}
-                    onChangeText={setFormPrice}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Ville :</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                    placeholder="Sfax, Tunis..."
-                    placeholderTextColor={theme.textMuted}
-                    value={formCity}
-                    onChangeText={setFormCity}
-                  />
-                </View>
-              </View>
-
-              {/* Contacts Directs */}
-              <View style={styles.rowTwoCols}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Téléphone direct :</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                    placeholder="+216 74 123 456"
-                    placeholderTextColor={theme.textMuted}
-                    value={formPhone}
-                    onChangeText={setFormPhone}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: theme.textMuted }]}>WhatsApp Réservation :</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                    placeholder="+216 98 123 456"
-                    placeholderTextColor={theme.textMuted}
-                    value={formWhatsapp}
-                    onChangeText={setFormWhatsapp}
-                  />
-                </View>
-              </View>
-
-              {/* Photo de l'offre (Upload sécurisé Cloudinary) */}
-              <View style={{ marginTop: 4, marginBottom: 12 }}>
-                <Text style={[styles.inputLabel, { color: theme.textMuted, marginBottom: 6 }]}>
-                  Photo de l'offre (Hébergée sur Cloudinary CDN) :
-                </Text>
-
-                {/* Prévisualisation sécurisée de l'image */}
-                {formImageUrl ? (
-                  <View style={{ marginBottom: 10, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: theme.cardBorder }}>
-                    <Image source={{ uri: formImageUrl }} style={{ width: '100%', height: 170 }} resizeMode="cover" />
-
-                    {/* Badge Cloudinary Verified */}
-                    <View
-                      style={{
-                        position: 'absolute',
-                        top: 10,
-                        left: 10,
-                        backgroundColor: 'rgba(16, 185, 129, 0.92)',
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 8,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                    >
-                      <Ionicons name="checkmark-circle" size={13} color="#FFFFFF" />
-                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '800' }}>Cloudinary CDN</Text>
-                    </View>
-
-                    {/* Bouton Supprimer */}
-                    <TouchableOpacity
-                      style={{
-                        position: 'absolute',
-                        top: 10,
-                        right: 10,
-                        backgroundColor: 'rgba(239, 68, 68, 0.9)',
-                        paddingHorizontal: 10,
-                        paddingVertical: 5,
-                        borderRadius: 8,
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        gap: 4,
-                      }}
-                      onPress={() => setFormImageUrl('')}
-                    >
-                      <Ionicons name="trash-outline" size={12} color="#FFFFFF" />
-                      <Text style={{ color: '#FFFFFF', fontSize: 11, fontWeight: '700' }}>Supprimer</Text>
-                    </TouchableOpacity>
-                  </View>
-                ) : null}
-
-                {/* Bouton de sélection d'image avec expo-image-picker */}
-                <TouchableOpacity
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 10,
-                    backgroundColor: isDark ? '#1E293B' : '#EFF6FF',
-                    borderColor: theme.primary,
-                    borderWidth: 1.5,
-                    borderStyle: formImageUrl ? 'solid' : 'dashed',
-                    paddingVertical: 14,
-                    borderRadius: 14,
-                  }}
-                  onPress={handlePickImage}
-                  disabled={uploadingImage}
-                >
-                  {uploadingImage ? (
-                    <>
-                      <ActivityIndicator size="small" color={theme.primary} />
-                      <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>
-                        Téléversement sécurisé vers Cloudinary...
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Ionicons name={formImageUrl ? 'images' : 'cloud-upload'} size={20} color={theme.primary} />
-                      <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '800' }}>
-                        {formImageUrl ? 'Changer la photo (depuis la galerie)' : '📷 Choisir une photo depuis la galerie'}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                {!formImageUrl && (
-                  <Text style={{ fontSize: 11, color: theme.textMuted, marginTop: 6, fontStyle: 'italic' }}>
-                    🔒 Par sécurité, les photos sont directement importées de votre galerie et sécurisées par Cloudinary CDN.
-                  </Text>
-                )}
-              </View>
-
-              {/* Description */}
-              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Description de l'offre :</Text>
-              <TextInput
-                style={[styles.input, styles.textArea, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                multiline
-                numberOfLines={3}
-                placeholder="Décrivez votre menu, ambiance, horaires..."
-                placeholderTextColor={theme.textMuted}
-                value={formDescription}
-                onChangeText={setFormDescription}
-              />
-
-              {/* Horaires d'ouverture et de fermeture */}
-              <View style={styles.rowTwoCols}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Heure d'ouverture :</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                    placeholder="09:00"
-                    placeholderTextColor={theme.textMuted}
-                    value={formOpeningTime}
-                    onChangeText={setFormOpeningTime}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Heure de fermeture :</Text>
-                  <TextInput
-                    style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                    placeholder="23:00"
-                    placeholderTextColor={theme.textMuted}
-                    value={formClosingTime}
-                    onChangeText={setFormClosingTime}
-                  />
-                </View>
-              </View>
-
-              <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Jours d'ouverture :</Text>
-              <TextInput
-                style={[styles.input, { backgroundColor: isDark ? '#1E293B' : '#F8FAFC', color: theme.textMain, borderColor: theme.cardBorder }]}
-                placeholder="Tous les jours / Lun - Sam"
-                placeholderTextColor={theme.textMuted}
-                value={formOpenDays}
-                onChangeText={setFormOpenDays}
-              />
-
-              {/* Options & Confort */}
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.switchTitle, { color: theme.textMain }]}>❄️ Climatisation confirmée</Text>
-                  <Text style={[styles.switchSub, { color: theme.textMuted }]}>Idéal par temps chaud</Text>
-                </View>
-                <Switch value={formHasAc} onValueChange={setFormHasAc} trackColor={{ false: '#CBD5E1', true: '#10B981' }} thumbColor="#FFFFFF" />
-              </View>
-
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.switchTitle, { color: theme.textMain }]}>⚡ Groupe Électrogène (Power Backup)</Text>
-                  <Text style={[styles.switchSub, { color: theme.textMuted }]}>Service assuré sans coupure</Text>
-                </View>
-                <Switch value={formHasPower} onValueChange={setFormHasPower} trackColor={{ false: '#CBD5E1', true: '#10B981' }} thumbColor="#FFFFFF" />
-              </View>
-
-              {/* Bouton de Soumission */}
-              <TouchableOpacity
-                style={[styles.submitButton, { backgroundColor: theme.primary }]}
-                onPress={handleSaveActivity}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.submitButtonText}>
-                    {editingActivity ? 'Enregistrer les modifications' : "Publier l'offre"}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+        editingActivity={editingActivity}
+        currentUserCity={currentUser?.city}
+        electricityAlertActive={electricityAlertActive}
+        theme={theme}
+        isDark={isDark}
+        onClose={() => setModalVisible(false)}
+        onSave={handleSaveActivity}
+      />
 
       {/* MODAL PROMOTION PRO & PREMIUM */}
       <PartnerProPromoModal

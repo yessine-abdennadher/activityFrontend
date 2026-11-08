@@ -1,28 +1,43 @@
-# AGENTS.md — Technical Architecture & Guidelines for ActivityTN ⚡
+# AGENTS.md — Technical Architecture & Guidelines for Tfarhida (تفرهيدة) ⚡
 
-This document is the **primary technical specification, architecture handbook, and context memory** for any AI assistant working on the **ActivityTN** mobile application repository.
+This document is the **primary technical specification, architecture handbook, and context memory** for any AI assistant working on the **Tfarhida (تفرهيدة)** mobile application repository.
 
 ---
 
-## 🚀 Product Concept & Slogan
-- **App Name**: ActivityTN (أكتيفيتي تونس)
-- **Slogan**: "شنوّة نعمل توّا؟" (What are we doing right now?)
-- **Goal**: Tunisian activity discovery app tailored for young Tunisians, students, couples, and groups of friends to find activities nearby according to budget (DT), duration, distance, and categories.
+## 🚀 Product Concept, Brand & Slogan
+
+- **Application Name**: **Tfarhida** (تفرهيدة)
+- **Slug & Package**: `tfarhida` / `tn.tfarhida.app`
+- **Slogan**: *"شنوّة نعمل توّا؟"* (Que fait-on maintenant ?) & *"تفرهيدتك تبدا من هنا"* (Ton évasion commence ici)
+- **Goal**: Application tunisienne de découverte et recommandation d'activités, sorties et loisirs pour les jeunes, étudiants, couples et familles. Recherche intelligente par budget (DT / TND), temps/durée, distance et centres d'intérêt.
+- **Villes couvertes**: Sfax (ville pilote), Grand Tunis, Sousse, Hammamet, Monastir, Bizerte, Djerba.
 
 ---
 
 ## 🎨 Design System & Visual Guidelines
 
-1. **Color Palette**: Mediterranean Blue & Sapphire Cyan — `#0D7CF2` (Azur), `#00C2FF` (Cyan), `#0A3B8C` (Deep Blue). Defined in `src/theme/theme.ts`.
-2. **Visual Style**: Light glassmorphism — white/cyan gradients, soft shadows, frosted blurs, bright accents. Avoid dark/heavy colors on interactive elements.
-3. **Icons**: Strictly use **`@expo/vector-icons` (Ionicons)**. Never use emoji or text strings as icons in core components.
-4. **Card Design**: Rounded cards (`borderRadius: 20–32`), generous drop shadows, glassmorphic overlays. Defined in `src/components/home/ActivityCard.tsx`.
-5. **Buttons**: Use `AnimatedGlowButton` (`src/components/ui/AnimatedGlowButton.tsx`) for primary CTAs — bright white/cyan glassmorphic style with animated shimmer/glow.
-6. **Navigation Bar**: Floating pill-shaped bottom tab bar (`borderRadius: 999`) with active gradient highlight. Always visible on primary tabs with `zIndex: 9999`.
-7. **Header**: Ambient mesh-orb background using Mediterranean palette, with glassmorphic search bar.
-8. **Dark Mode & Theme**: Managed globally via `AppPreferencesContext.tsx`. Tokens in `src/theme/theme.ts` (`lightTheme` / `darkTheme`).
-9. **Localization**: All user-facing text uses `src/constants/translations.ts`, `src/hooks/useTranslation.ts`, and locale files `src/locales/{fr,ar,en}.json`. No hardcoded strings in screens.
-10. **RTL**: Arabic via centralized `configureRTL`. All components must be usable when `isRTL` is active.
+1. **Brand Palette & Theme Tokens**:
+   - **Central Colors**: Définies dans [`src/theme/colors.ts`](file:///c:/AT/activitytn/src/theme/colors.ts) (`WIN_COLORS`):
+     - Cyan Signature: `#00D2FF`
+     - Royal Blue: `#2563EB`
+     - Indigo / Purple: `#6366F1` / `#9865f0ca`
+     - Dark Cosmic: `#060B24` (background), `#0F172A` (cards), `#151D3B` (surfaces)
+   - **Gradients & Glassmorphism**: `WIN_GRADIENTS` et `WIN_GLASS` dans `src/theme/colors.ts`.
+   - **Themes**: [`src/theme/theme.ts`](file:///c:/AT/activitytn/src/theme/theme.ts) fournit `lightTheme` et `darkTheme`, consommés via `usePreferences()` depuis [`src/context/AppPreferencesContext.tsx`](file:///c:/AT/activitytn/src/context/AppPreferencesContext.tsx).
+2. **Visual Style**: Light glassmorphism moderne en mode clair (dégradés azur/cyan doux, ombres portées douces, flous givrés) et Cosmic Midnight en mode sombre.
+3. **Icons**: Utiliser exclusivement **`@expo/vector-icons` (`Ionicons`)**. Aucun emoji ou chaîne de caractères brute comme icône dans les composants système.
+4. **Card Design**:
+   - Carte canonique complète : [`src/components/ActivityCard.tsx`](file:///c:/AT/activitytn/src/components/ActivityCard.tsx) (coins arrondis `20–32`, glassmorphic badges, support multilingue et favoris).
+   - Cartes spécialisées : [`ExploreActivityCard.tsx`](file:///c:/AT/activitytn/src/components/ExploreActivityCard.tsx), [`MapActivityCard.tsx`](file:///c:/AT/activitytn/src/components/MapActivityCard.tsx), [`CompactActivityCard.tsx`](file:///c:/AT/activitytn/src/components/home/CompactActivityCard.tsx).
+5. **Buttons & CTAs**:
+   - CTA Principal : [`src/components/ui/AnimatedGlowButton.tsx`](file:///c:/AT/activitytn/src/components/ui/AnimatedGlowButton.tsx) avec brillance animée et dégradé cyan/bleu.
+6. **Navigation Bar**:
+   - Barre flottante en forme de pilule : [`src/components/FloatingTabBar.tsx`](file:///c:/AT/activitytn/src/components/FloatingTabBar.tsx) (`borderRadius: 999`, flou glassmorphic, `zIndex: 9999`).
+7. **Modals & BottomSheets**:
+   - Règle stricte : utiliser [`src/components/ui/ScrollableModal.tsx`](file:///c:/AT/activitytn/src/components/ui/ScrollableModal.tsx) pour tout formulaire ou modal glissant vers le haut.
+8. **Localization & RTL**:
+   - Toutes les chaînes passent par [`src/hooks/useTranslation.ts`](file:///c:/AT/activitytn/src/hooks/useTranslation.ts) et les fichiers [`src/locales/{fr,ar,en}.json`](file:///c:/AT/activitytn/src/locales).
+   - Support RTL natif pour la langue arabe (`isRTL`).
 
 ---
 
@@ -30,115 +45,100 @@ This document is the **primary technical specification, architecture handbook, a
 
 ```
 activitytn/
-├── App.tsx                          # Expo entry point — IntroGate + MainContent
-├── index.html                       # Web preview (phone frame mockup)
-├── package.json
-├── AGENTS.md                        # This file
+├── App.tsx                          # Point d'entrée Expo (IntroGate, Auth & Navigation principale)
+├── app.json                         # Configuration Expo (slug: tfarhida, identifiant tn.tfarhida.app)
+├── AGENTS.md                        # Ce fichier de référence
 └── src/
-    ├── screens/                     # ⚠️ One file per screen — mandatory rule
-    │   ├── SplashScreen.tsx                 # Animated splash / brand intro
-    │   ├── OnboardingScreen.tsx             # First-run onboarding flow
-    │   ├── HomeScreenTab.tsx                # Home tab UI (ambient header + activity feed)
-    │   ├── RecommendationFlowScreen.tsx     # Step-by-step recommendation wizard
-    │   ├── RecommendationResultsScreen.tsx  # Filtered activity results
-    │   ├── MapScreen.tsx                    # Map / nearby activities view
-    │   ├── ActivityDetailsScreen.tsx        # Full activity detail page
-    │   ├── FavoritesScreen.tsx              # Saved/favorite activities
-    │   ├── ProfileScreen.tsx                # User profile, settings, dark mode toggle
-    │   ├── ChatbotScreen.tsx                # AI chatbot interface
-    │   ├── AuthScreen.tsx                   # Login / Signup
-    │   ├── StatusStateScreen.tsx            # Loading, empty, and error states
-    │   ├── MchinaMvpScreens.tsx             # ⚠️ LEGACY — do not add new screens here
-    │   └── HomeScreen.tsx                   # ⚠️ LEGACY — superseded by HomeScreenTab.tsx
+    ├── screens/                     # Écrans modulaires (1 écran = 1 fichier)
+    │   ├── SplashScreen.tsx                 # Écran de démarrage animé
+    │   ├── OnboardingScreen.tsx             # Parcours d'accueil / onboarding
+    │   ├── AuthScreen.tsx                   # Connexion / Inscription utilisateur
+    │   ├── HomeScreenTab.tsx                # Onglet Accueil (Header immersif, météo, filtres, activités phares)
+    │   ├── ExploreScreen.tsx                # Onglet Explorer (recherche, catégories, filtres avancés)
+    │   ├── ChatbotScreenTab.tsx             # Onglet KharjaBot / Assistant IA conversationnel
+    │   ├── NotificationsScreen.tsx          # Onglet Notifications et alertes sorties
+    │   ├── ProfileScreen.tsx                # Onglet Profil (préférences, langue, mode sombre, rôles)
+    │   ├── ActivityDetailsScreen.tsx        # Fiche détaillée d'une activité (photos, infos, itinéraire, avis)
+    │   ├── RecommendationFlowScreen.tsx     # Wizard de recommandation intelligente (budget, temps, ambiance)
+    │   ├── RecommendationResultsScreen.tsx  # Résultats filtrés du moteur de recommandation
+    │   ├── MapScreen.tsx                    # Vue Carte interactive géolocalisée
+    │   ├── AdminDashboardScreen.tsx         # Dashboard administration plateforme
+    │   └── PartnerDashboardScreen.tsx       # Espace partenaires & gestionnaires d'établissements
     ├── components/
-    │   ├── ActivityCard.tsx         # Canonical localized activity card with i18n & glassmorphism
-    │   ├── FloatingTabBar.tsx       # Floating pill tab bar
-    │   ├── GoogleMapView.tsx        # Map integration component
+    │   ├── ActivityCard.tsx                 # Carte d'activité canonique multilingue
+    │   ├── ExploreActivityCard.tsx          # Carte compacte pour vue explorer
+    │   ├── MapActivityCard.tsx              # Carte pop-up pour repères sur carte
+    │   ├── FloatingTabBar.tsx               # Barre d'onglets flottante
+    │   ├── GoogleMapView.tsx                # Intégration cartographique
     │   └── ui/
-    │       ├── AnimatedGlowButton.tsx   # Primary CTA (bright glassmorphism + shimmer)
-    │       ├── LikeButton.tsx           # Animated favorite/like button
-    │       └── NewtonsCradleLoader.tsx  # Loading animation
+    │       ├── AnimatedGlowButton.tsx       # Bouton CTA avec lueur animée
+    │       ├── LikeButton.tsx               # Bouton favori avec animation rebond
+    │       ├── ScrollableModal.tsx          # Modal / BottomSheet scrollable universel
+    │       ├── SwipeableModal.tsx           # Modal avec fermeture au swipe
+    │       ├── LogoutConfirmModal.tsx       # Boîte de confirmation déconnexion
+    │       ├── NewtonsCradleLoader.tsx      # Indicateur de chargement stylisé
+    │       ├── OfflineBanner.tsx            # Bannière d'alerte hors-ligne
+    │       └── Toast.tsx                    # Système de notifications toast in-app
     ├── context/
-    │   └── AppPreferencesContext.tsx  # Global dark mode, language, RTL state
+    │   ├── AppPreferencesContext.tsx        # Thème sombre/clair, langue courante, RTL
+    │   ├── LocationContext.tsx              # Géolocalisation GPS utilisateur
+    │   ├── NotificationContext.tsx          # Gestion des notifications et compteurs non-lus
+    │   └── ToastContext.tsx                 # Contexte des messages toast
     ├── theme/
-    │   └── theme.ts                 # lightTheme / darkTheme color tokens
-    ├── types/
-    │   └── index.ts                 # TypeScript interfaces (Activity, Category, User)
-    ├── data/
-    │   └── mockData.js              # Tunisian activity datasets (Sfax, Tunis, Sousse…)
-    ├── constants/
-    │   └── translations.ts          # i18n key constants
-    ├── hooks/
-    │   └── useTranslation.ts        # Translation hook
-    ├── locales/
-    │   ├── fr.json
-    │   ├── ar.json
-    │   └── en.json
-    └── services/                    # API service layer (ready for backend)
+    │   ├── colors.ts                        # Source de vérité WIN_COLORS, WIN_GRADIENTS, WIN_GLASS
+    │   ├── theme.ts                         # lightTheme & darkTheme tokens
+    │   └── palettes.ts                      # Palettes d'accents dynamiques
+    ├── services/                            # Couche services (API, Auth, Télémétrie, Push)
+    ├── hooks/                               # Hooks personnalisés (useTranslation, useActivities...)
+    ├── locales/                             # Fichiers de traduction (fr.json, ar.json, en.json)
+    └── types/                               # Interfaces TypeScript (Activity, Category, AuthUser...)
 ```
 
 ---
 
 ## 🧭 Navigation Architecture
 
-Navigation is **state-based** (no React Navigation library). `App.tsx` owns all navigation state.
+La navigation est pilotée par état réactif dans [`App.tsx`](file:///c:/AT/activitytn/App.tsx) :
 
+```mermaid
+graph TD
+    App[App.tsx] --> IntroGate{IntroGate}
+    IntroGate -->|phase === splash| Splash[SplashScreen]
+    IntroGate -->|phase === onboarding| Onboarding[OnboardingScreen]
+    IntroGate -->|phase === app| MainContent[MainContent]
+
+    MainContent --> TabNav{activeTab}
+    TabNav -->|home| Home[HomeScreenTab]
+    TabNav -->|explore| Explore[ExploreScreen]
+    TabNav -->|chat| Chat[ChatbotScreenTab]
+    TabNav -->|favorites| Fav[Vue Favoris interactive intégrée]
+    TabNav -->|profile| Profile[ProfileScreen]
+    TabNav -->|notifications| Notif[NotificationsScreen]
+
+    MainContent --> Overlays{Overlays / Modaux}
+    Overlays -->|selectedActivity| Detail[ActivityDetailsScreen]
+    Overlays -->|recommendationScreen === flow| Flow[RecommendationFlowScreen]
+    Overlays -->|recommendationScreen === results| Res[RecommendationResultsScreen]
+    Overlays -->|mapVisible| Map[MapScreen]
+    Overlays -->|adminDashboardVisible| Admin[AdminDashboardScreen]
+    Overlays -->|partnerDashboardVisible| Partner[PartnerDashboardScreen]
 ```
-App.tsx
- └── IntroGate
-      ├── phase === 'splash'      → <SplashScreen>
-      ├── phase === 'onboarding'  → <OnboardingScreen>
-      └── phase === 'app'         → <MainContent>
-                                       ├── activeTab === 'home'          → <HomeScreenTab>
-                                       ├── activeTab === 'explore'       → Explore/Filter UI (inline in App.tsx)
-                                       ├── activeTab === 'favorites'     → <FavoritesScreen>
-                                       ├── activeTab === 'profile'       → <ProfileScreen>
-                                       └── activeTab === 'notifications' → Notifications UI (inline in App.tsx)
-```
-
-**Overlay states** (rendered on top of active tab):
-- `recommendationScreen === 'flow'` → `<RecommendationFlowScreen>`
-- `recommendationScreen === 'results'` → `<RecommendationResultsScreen>`
-- `selectedActivity !== null` → `<ActivityDetailsScreen>`
-- `mapVisible === true` → `<MapScreen>`
 
 ---
 
-## 🗑️ Deprecated / Legacy Files (Cleaned)
+## 🇹🇳 Spécificités Tunisiennes
 
-| File | Status | Replacement |
-|------|--------|-------------|
-| `src/screens/MchinaMvpScreens.tsx` | ❌ Obsolete | Modular screens in `src/screens/` and `App.tsx` |
-| `src/screens/HomeScreen.tsx` | ❌ Obsolete | `src/screens/HomeScreenTab.tsx` |
-| `src/screens/FavoritesScreen.tsx` | ❌ Obsolete | Integrated interactive Favorites tab in `App.tsx` |
-| `src/screens/ProfileScreen.tsx` | ❌ Obsolete | Integrated interactive Profile tab in `App.tsx` |
-| `src/components/home/ActivityCard.tsx` | ❌ Duplicate | Canonical `src/components/ActivityCard.tsx` (supports i18n & optional theme) |
-| `src/application/RootLayout.tsx` | ❌ Inactive | Root `App.tsx` entrypoint |
+- **Devise** : DT / TND (Dinar Tunisien).
+- **Villes supportées** : Sfax, Tunis, Sousse, Hammamet, Monastir, Bizerte, Djerba.
+- **Langues** : Français, Arabe Tunisien (Derja / RTL), Anglais.
+- **Assistant IA** : *KharjaBot* / *Assistant Tfarhida*.
 
 ---
 
-## 🇹🇳 Tunisian Localization Details
-- **Cities**: Sfax, Tunis, Sousse, Hammamet, Monastir, Bizerte.
-- **Currency**: DT / TND.
-- **Language**: Tunisian Arabic dialect for user-facing content, RTL support.
+## ✅ Règles Obligatoires pour les Assistants
 
----
-
-## ⚡ Backend Readiness
-API endpoints to connect when backend is ready:
-- `GET /activities`
-- `GET /categories`
-- `POST /recommendations`
-- `POST /favorites`
-
----
-
-## ✅ Mandatory Rules
-
-1. **One screen = one file** under `src/screens/`. Never bundle multiple screens in one file.
-2. **Real vector icons only**: Use `Ionicons` from `@expo/vector-icons`. No emoji, Unicode characters, or text strings used as icons.
-3. **Bright UI**: CTAs and interactive elements use the light glassmorphic Mediterranean palette. No dark/dull colors on buttons.
-4. **Theme tokens**: Always use `theme.*` from `AppPreferencesContext` — never hardcode colors.
-5. **Localization**: All user-facing strings through translation hooks/locale files. No hardcoded text in screens.
-6. **Favorites & details**: Every `ActivityCard` must support opening the detail view and toggling favorites.
-7. **Architecture rules go here**: Any new global rule must be added to this file, not to tool-specific configs.
+1. **1 écran = 1 fichier** situé dans `src/screens/`. Ne jamais fusionner plusieurs écrans majeurs dans un seul fichier.
+2. **Icônes réelles uniquement** : Toujours utiliser `@expo/vector-icons` (`Ionicons`). Zéro emoji en guise d'icône.
+3. **Palette officielle Tfarhida** : Utiliser les tokens `theme.*` issus de `usePreferences()` et les constantes de [`src/theme/colors.ts`](file:///c:/AT/activitytn/src/theme/colors.ts). Ne jamais coder de couleurs arbitraires en dur.
+4. **Internationalisation obligatoire** : Aucun texte en dur dans les écrans ; passer systématiquement par `useTranslation()` et `src/locales/`.
+5. **Composant modal unifié** : Toujours utiliser [`ScrollableModal`](file:///c:/AT/activitytn/src/components/ui/ScrollableModal.tsx) pour les formulaires modaux et tiroirs contextuels.

@@ -30,6 +30,9 @@ export const STORAGE_KEYS = {
   THEME_PALETTE: 'activitytn_pref_theme_palette',
   NOTIFICATIONS_ENABLED: 'activitytn_pref_notifications_enabled',
   PUSH_TOKEN: 'activitytn_push_token',
+  CHAT_SESSION_ID: 'activitytn_chat_session_id',
+  CHAT_SESSION_TOKEN: 'activitytn_chat_session_token',
+  CHAT_CONVERSATION_HISTORY: 'activitytn_chat_conversation_history',
 } as const;
 
 // Clés qui doivent obligatoirement être chiffrées dans le Keystore / Keychain

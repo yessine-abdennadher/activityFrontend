@@ -1,17 +1,18 @@
 /**
  * AiChatbotTeaserCard.tsx
- * Carte de teasing moderne pour l'Assistant IA KharjaTN sur l'écran d'accueil.
+ * Carte d'accès direct et promotionnelle pour l'Assistant IA KharjaBot sur l'écran d'accueil.
  *
  * Fonctionnalités :
  * - Design premium avec dégradé subtil et effet glassmorphism
- * - Badge "Bientôt disponible 🚀"
- * - Bouton interactif "M'avertir à la sortie 🔔"
- * - Mémorisation de l'état d'inscription (Storage) avec confirmation visuelle
+ * - Badge "IA Active" avec pulsation subtile
+ * - Bouton interactif "Discuter avec KharjaBot"
+ * - Navigation fluide vers l'onglet chatbot
  * - Support complet Thème Sombre & Thème Clair, Palettes de couleurs
  * - Support multilingue (FR, AR, EN) avec compatibilité RTL (Arabe)
+ * - Conforme au Brand Book (100% Vectoriel, Zéro Emoji dans le code)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -23,9 +24,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { usePreferences } from '../../context/AppPreferencesContext';
 import { useTranslation } from '../../hooks/useTranslation';
-import { Storage } from '../../services/storage';
-
-const NOTIFY_STORAGE_KEY = 'activitytn_ai_teaser_notified';
 
 interface AiChatbotTeaserCardProps {
   onOpenChatbot?: () => void;
@@ -38,22 +36,14 @@ export const AiChatbotTeaserCard: React.FC<AiChatbotTeaserCardProps> = ({
   const { t } = useTranslation();
   const isRTL = language === 'ar';
 
-  const [isNotified, setIsNotified] = useState(false);
-  const [pulseAnim] = useState(new Animated.Value(1));
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  // Restauration de l'état d'inscription au démarrage
   useEffect(() => {
-    Storage.getItem(NOTIFY_STORAGE_KEY).then((val) => {
-      if (val === 'true') {
-        setIsNotified(true);
-      }
-    });
-
     // Animation de pulsation subtile sur l'icône IA
     const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 1.1,
+          toValue: 1.08,
           duration: 1600,
           useNativeDriver: true,
         }),
@@ -69,12 +59,6 @@ export const AiChatbotTeaserCard: React.FC<AiChatbotTeaserCardProps> = ({
     return () => pulseLoop.stop();
   }, [pulseAnim]);
 
-  const handleNotifyPress = async () => {
-    if (isNotified) return;
-    setIsNotified(true);
-    await Storage.setItem(NOTIFY_STORAGE_KEY, 'true');
-  };
-
   const gradientColors: [string, string, ...string[]] = isDark
     ? ['#1E1B4B', '#0F172A', '#111827']
     : ['#EEF2FF', '#F5F3FF', '#FAF5FF'];
@@ -85,9 +69,11 @@ export const AiChatbotTeaserCard: React.FC<AiChatbotTeaserCardProps> = ({
 
   return (
     <TouchableOpacity
-      activeOpacity={onOpenChatbot ? 0.88 : 1}
+      activeOpacity={0.88}
       onPress={onOpenChatbot}
       style={styles.outerContainer}
+      accessibilityRole="button"
+      accessibilityLabel={t('aiAssistantTeaserTitle')}
     >
       <LinearGradient
         colors={gradientColors}
@@ -100,10 +86,10 @@ export const AiChatbotTeaserCard: React.FC<AiChatbotTeaserCardProps> = ({
           },
         ]}
       >
-        {/* Ligne d'en-tête : Badge Bientôt Disponible + Icône Robot */}
+        {/* Ligne d'en-tête : Badge IA Active + Icône Robot */}
         <View style={[styles.topRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
           <View style={[styles.badgePill, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.25)' : 'rgba(99, 102, 241, 0.12)' }]}>
-            <Ionicons name="sparkles" size={13} color="#818CF8" />
+            <Ionicons name="flash" size={13} color="#818CF8" />
             <Text style={styles.badgeText}>{t('aiAssistantTeaserBadge')}</Text>
           </View>
 
@@ -130,7 +116,7 @@ export const AiChatbotTeaserCard: React.FC<AiChatbotTeaserCardProps> = ({
               },
             ]}
           >
-            🤖 {t('aiAssistantTeaserTitle')}
+            {t('aiAssistantTeaserTitle')}
           </Text>
 
           <Text
@@ -146,46 +132,33 @@ export const AiChatbotTeaserCard: React.FC<AiChatbotTeaserCardProps> = ({
           </Text>
         </View>
 
-        {/* Bouton d'action / Confirmation */}
+        {/* Bouton d'action direct */}
         <View style={[styles.actionRow, { flexDirection: isRTL ? 'row-reverse' : 'row' }]}>
-          {isNotified ? (
-            <View
+          <TouchableOpacity
+            onPress={onOpenChatbot}
+            activeOpacity={0.85}
+            style={styles.ctaButtonWrapper}
+            accessibilityRole="button"
+            accessibilityLabel={t('aiAssistantTeaserCta')}
+          >
+            <LinearGradient
+              colors={['#4F46E5', '#7C3AED']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
               style={[
-                styles.successBox,
-                {
-                  backgroundColor: isDark ? 'rgba(16, 185, 129, 0.18)' : '#ECFDF5',
-                  borderColor: isDark ? 'rgba(16, 185, 129, 0.4)' : '#A7F3D0',
-                  flexDirection: isRTL ? 'row-reverse' : 'row',
-                },
+                styles.ctaButton,
+                { flexDirection: isRTL ? 'row-reverse' : 'row' },
               ]}
             >
-              <Ionicons name="checkmark-circle" size={18} color="#10B981" />
-              <Text style={[styles.successText, { color: isDark ? '#34D399' : '#047857' }]}>
-                {t('aiAssistantTeaserSuccess')}
-              </Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              onPress={handleNotifyPress}
-              activeOpacity={0.85}
-              style={styles.ctaButtonWrapper}
-              accessibilityRole="button"
-              accessibilityLabel={t('aiAssistantTeaserCta')}
-            >
-              <LinearGradient
-                colors={['#4F46E5', '#7C3AED']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={[
-                  styles.ctaButton,
-                  { flexDirection: isRTL ? 'row-reverse' : 'row' },
-                ]}
-              >
-                <Ionicons name="notifications" size={15} color="#FFFFFF" />
-                <Text style={styles.ctaButtonText}>{t('aiAssistantTeaserCta')}</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
+              <Ionicons name="chatbubble-ellipses" size={15} color="#FFFFFF" />
+              <Text style={styles.ctaButtonText}>{t('aiAssistantTeaserCta')}</Text>
+              <Ionicons
+                name={isRTL ? 'arrow-back' : 'arrow-forward'}
+                size={14}
+                color="#FFFFFF"
+              />
+            </LinearGradient>
+          </TouchableOpacity>
         </View>
       </LinearGradient>
     </TouchableOpacity>
@@ -276,20 +249,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '700',
     fontSize: 13,
-  },
-  successBox: {
-    width: '100%',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  successText: {
-    fontSize: 13,
-    fontWeight: '700',
   },
 });
 

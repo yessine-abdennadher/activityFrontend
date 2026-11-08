@@ -24,7 +24,7 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       gcTime: 1000 * 60 * 60 * 24, // Cache conservé 24 heures en local
-      staleTime: 1000 * 60 * 10,    // Données considérées fraîches pendant 10 minutes
+      staleTime: 1000 * 30,         // Données fraîches 30 secondes (rafraîchissement automatique rapide)
       networkMode: 'offlineFirst',  // Stratégie hors-ligne : renvoie le cache immédiatement
       refetchOnWindowFocus: false,  // Évite les rechargements intempestifs sur mobile
       retry: (failureCount) => {

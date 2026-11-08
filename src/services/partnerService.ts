@@ -4,6 +4,7 @@ import type {
   PartnerActivitiesResponse,
   PartnerActivityItem,
   PartnerActivityInput,
+  PartnerSubscriptionInfo,
 } from '../types';
 
 function getHeaders(): HeadersInit {
@@ -52,6 +53,35 @@ export async function createPartnerActivity(
 
   return data.activity;
 }
+
+/**
+ * Récupérer l'état de l'abonnement du partenaire et le temps restant avant expiration
+ */
+export async function fetchPartnerSubscription(): Promise<PartnerSubscriptionInfo> {
+  const url = `${getApiBaseUrl()}/auth/me`;
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: getHeaders(),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || "Impossible de récupérer les détails de l'abonnement.");
+  }
+
+  const user = data.user;
+  return {
+    tier: user.partnerTier || 'standard',
+    requestedTier: user.requestedTier || 'standard',
+    billingCycle: user.requestedBillingCycle || 'monthly',
+    status: user.subscriptionStatus || 'none',
+    startedAt: user.subscriptionStartedAt,
+    expiresAt: user.subscriptionExpiresAt,
+    daysRemaining: user.daysRemaining || 0,
+    isExpiringSoon: user.isExpiringSoon || false,
+  };
+}
+
 
 /**
  * Mettre à jour une activité existante de son établissement
@@ -173,4 +203,5 @@ export async function addPartnerEvent(
 
   return data.activity;
 }
+
 

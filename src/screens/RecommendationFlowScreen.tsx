@@ -325,7 +325,7 @@ export const RecommendationFlowScreen: React.FC<RecommendationFlowScreenProps> =
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} {...({ backgroundColor: theme.bg } as any)} />
 
       {/* Top Floating Action Bar */}
       <View style={styles.topBar}>

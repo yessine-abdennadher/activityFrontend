@@ -63,12 +63,13 @@ export const activityActionService = {
     customMessage,
     fallbackLabel = 'WhatsApp',
   }: WhatsAppBookingParams): Promise<boolean> {
-    const rawWa = whatsapp || phone || '+216 98 200 100';
+    const rawWa = whatsapp || phone || '98 200 100';
     const cleanWa = rawWa.replace(/[^\d]/g, '');
+    const finalWa = cleanWa.startsWith('216') ? cleanWa : `216${cleanWa}`;
     const message =
       customMessage ||
       `Bonjour / مرحبا, je souhaite réserver pour "${activityName}" via ActivityTN 🇹🇳.`;
-    const url = `https://wa.me/${cleanWa}?text=${encodeURIComponent(message)}`;
+    const url = `https://wa.me/${finalWa}?text=${encodeURIComponent(message)}`;
 
     try {
       await Linking.openURL(url);

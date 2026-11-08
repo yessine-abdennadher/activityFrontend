@@ -280,15 +280,22 @@ export async function updateUserAvatar(newAvatarUrl: string): Promise<AuthUser |
 
     if (accessToken) {
       try {
-        const baseUrl = getApiBaseUrl();
-        await fetch(`${baseUrl}/users/profile`, {
-          method: 'PATCH',
+        const response = await fetchAuthWithFallback('/auth/profile', {
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
           body: JSON.stringify({ avatar: newAvatarUrl }),
         });
+        if (response.ok) {
+          const resData = await response.json();
+          if (resData.user) {
+            const freshMapped = mapUser(resData.user);
+            await Storage.setJson(STORAGE_KEYS.CURRENT_USER, freshMapped);
+            return freshMapped;
+          }
+        }
       } catch (err) {
         console.warn('[authService] Sync avatar avec backend différée (sauvegarde locale réussie):', err);
       }

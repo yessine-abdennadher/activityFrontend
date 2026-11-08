@@ -128,11 +128,12 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
         const uploadRes = await uploadImage(base64Data, 'avatars');
         if (uploadRes && uploadRes.url) {
           setSelectedUri(uploadRes.url);
+          await onSelectAvatar(uploadRes.url);
           Alert.alert(
             language === 'ar' ? 'تم الرفع بنجاح! 📸' : 'Téléversement réussi ! 📸',
             language === 'ar'
-              ? 'تم رفع صورتك الشخصية بنجاح وحفظها بأمان على السحابة.'
-              : 'Votre avatar a été téléversé et sécurisé sur Cloudinary avec succès.'
+              ? 'تم رفع وتحديث صورتك الشخصية بنجاح على السحابة.'
+              : 'Votre avatar a été mis à jour et sécurisé sur Cloudinary avec succès.'
           );
         }
       }
@@ -190,11 +191,12 @@ export const AvatarPickerModal: React.FC<AvatarPickerModalProps> = ({
         const uploadRes = await uploadImage(base64Data, 'avatars');
         if (uploadRes && uploadRes.url) {
           setSelectedUri(uploadRes.url);
+          await onSelectAvatar(uploadRes.url);
           Alert.alert(
             language === 'ar' ? 'تم الرفع بنجاح! 📸' : 'Téléversement réussi ! 📸',
             language === 'ar'
-              ? 'تم رفع صورتك الشخصية بنجاح وحفظها بأمان على السحابة.'
-              : 'Votre avatar a été téléversé et sécurisé sur Cloudinary avec succès.'
+              ? 'تم رفع وتحديث صورتك الشخصية بنجاح على السحابة.'
+              : 'Votre avatar a été mis à jour et sécurisé sur Cloudinary avec succès.'
           );
         }
       }

@@ -13,6 +13,7 @@ import { usePreferences } from '../../context/AppPreferencesContext';
 import { getActivityLocalizedText } from '../../services/activityService';
 import type { Activity } from '../../types';
 import type { ThemeColors } from '../../theme/theme';
+import { FONTS } from '../../theme/typography';
 
 export interface CompactActivityCardProps {
   activity: Activity;
@@ -55,6 +56,7 @@ export const CompactActivityCard: React.FC<CompactActivityCardProps> = ({
   };
 
   const imageUri =
+    activity.imageUrl ||
     activity.image ||
     'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=600&q=80';
 
@@ -122,7 +124,10 @@ export const CompactActivityCard: React.FC<CompactActivityCardProps> = ({
 
         <Text
           numberOfLines={2}
-          style={styles.title}
+          style={[
+            styles.title,
+            language === 'ar' && { fontFamily: FONTS.arabicBold },
+          ]}
         >
           {localizedName}
         </Text>
@@ -197,18 +202,21 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(253, 224, 71, 0.4)',
   },
   distanceText: {
+    fontFamily: FONTS.interBold,
     color: '#FDE047',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   priceText: {
+    fontFamily: FONTS.interBold,
     color: '#38BDF8',
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   title: {
+    fontFamily: FONTS.outfitBold,
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 17,

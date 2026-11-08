@@ -31,6 +31,15 @@ function buildHeaders(requiresAuth = false): HeadersInit {
 }
 
 /**
+ * Exécute un fetch avec un timeout strict pour ne jamais figer l'application mobile
+ */
+function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 3000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+/**
  * Requête HTTP générique avec basculement automatique d'hôte et gestion de l'expiration du token.
  */
 async function apiFetch(
@@ -41,29 +50,33 @@ async function apiFetch(
   const headers = buildHeaders(requiresAuth);
   let activeBaseUrl = getApiBaseUrl();
 
-  // Essayer d'abord avec l'URL active connue
+  // Essayer d'abord avec l'URL active connue (timeout court de 3s pour éviter toute attente)
   try {
     const url = `${activeBaseUrl}${path}`;
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetchWithTimeout(url, { ...options, headers }, 3000);
 
     if (response.status === 401) {
       const newToken = await refreshAccessToken();
       if (newToken) {
-        return fetch(url, {
-          ...options,
-          headers: { ...headers, Authorization: `Bearer ${newToken}` },
-        });
+        return fetchWithTimeout(
+          url,
+          {
+            ...options,
+            headers: { ...headers, Authorization: `Bearer ${newToken}` },
+          },
+          3000
+        );
       }
     }
     return response;
   } catch (err) {
-    // Si la connexion a échoué (erreur réseau / hôte injoignable), tester les autres hôtes de secours
+    // Si la connexion a échoué (timeout ou hôte injoignable), tester rapidement les hôtes alternatifs (1.2s max par hôte)
     const fallbacks = getFallbackApiUrls();
     for (const candidate of fallbacks) {
       if (candidate === activeBaseUrl) continue;
       try {
         const testUrl = `${candidate}${path}`;
-        const res = await fetch(testUrl, { ...options, headers });
+        const res = await fetchWithTimeout(testUrl, { ...options, headers }, 1200);
         if (res.ok || res.status < 500) {
           setApiBaseUrl(candidate);
           console.log(`[activityService] 🔄 Basculement réussi vers l'hôte opérationnel : ${candidate}`);
@@ -113,6 +126,7 @@ function mapActivity(raw: Record<string, unknown>): Activity {
     distance: distStr,
     rating: (raw.reviewsCount && Number(raw.reviewsCount) > 0) ? Number(raw.rating || 0) : (raw.rating !== undefined && Number(raw.reviewsCount) !== 0 ? Number(raw.rating) : 0),
     image: (raw.image as string) || (raw.imageUrl as string) || 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80',
+    imageUrl: (raw.imageUrl as string) || (raw.image as string) || 'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&q=80',
     description: (raw.description as string) || '',
     descriptionAr: (raw.descriptionAr as string) || (raw.description as string),
     descriptionFr: (raw.descriptionFr as string) || (raw.description as string),

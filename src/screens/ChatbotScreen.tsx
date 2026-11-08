@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { chatbotService } from '../services/chatbotService';
 
 interface Message {
   id: string;
@@ -14,6 +15,7 @@ export default function ChatbotScreen() {
   const { isDark, theme } = usePreferences();
   const { t } = useTranslation();
   const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { id: 'welcome', sender: 'bot', text: t('subtitle') },
   ]);
@@ -24,15 +26,30 @@ export default function ChatbotScreen() {
     { label: t('chatbotGroupIdea'), icon: 'people-outline' as const },
   ];
 
-  const sendMessage = (text = input) => {
+  const sendMessage = async (text = input) => {
     const cleanText = text.trim();
-    if (!cleanText) return;
+    if (!cleanText || isTyping) return;
     setMessages(current => [
       ...current,
       { id: `user-${Date.now()}`, sender: 'user', text: cleanText },
-      { id: `bot-${Date.now()}`, sender: 'bot', text: t('chatbotBotReply') },
     ]);
     setInput('');
+    setIsTyping(true);
+
+    try {
+      const reply = await chatbotService.sendMessage(cleanText);
+      setMessages(current => [
+        ...current,
+        { id: `bot-${Date.now()}`, sender: 'bot', text: reply.text },
+      ]);
+    } catch {
+      setMessages(current => [
+        ...current,
+        { id: `bot-${Date.now()}`, sender: 'bot', text: t('chatbotBotReply') },
+      ]);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (

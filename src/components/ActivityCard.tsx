@@ -7,6 +7,7 @@ import { ThemeColors } from '../theme/theme';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { getActivityLocalizedText } from '../services/activityService';
 import { getLocalizedCategories } from '../constants/categories';
+import { FONTS } from '../theme/typography';
 
 export interface ActivityCardProps {
   activity: Activity;
@@ -182,7 +183,13 @@ export const ActivityCard: React.FC<ActivityCardProps> = ({
             )}
           </View>
 
-          <Text style={styles.title} numberOfLines={1}>
+          <Text
+            style={[
+              styles.title,
+              language === 'ar' && { fontFamily: FONTS.arabicExtraBold },
+            ]}
+            numberOfLines={1}
+          >
             {localizedTitle}
           </Text>
         </View>
@@ -295,11 +302,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   priceText: {
+    fontFamily: FONTS.interBold,
     color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '900',
   },
   priceUnit: {
+    fontFamily: FONTS.interMedium,
     color: 'rgba(255, 255, 255, 0.85)',
     fontSize: 10,
     fontWeight: '600',
@@ -318,6 +327,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   locationText: {
+    fontFamily: FONTS.interSemiBold,
     fontSize: 12,
     color: '#FCE7F3',
     fontWeight: '700',
@@ -326,6 +336,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   title: {
+    fontFamily: FONTS.outfitBold,
     fontSize: 20,
     fontWeight: '900',
     color: '#FFFFFF',
@@ -356,6 +367,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   metaText: {
+    fontFamily: FONTS.interSemiBold,
     fontSize: 12,
     fontWeight: '700',
   },

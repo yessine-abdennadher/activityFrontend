@@ -13,6 +13,7 @@ import { usePreferences } from '../context/AppPreferencesContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { getLocalizedCategories } from '../constants/categories';
 import { ExploreActivityCard } from '../components/ExploreActivityCard';
+import { ExploreActivityCardSkeleton } from '../components/ExploreActivityCardSkeleton';
 import type { Activity } from '../types';
 
 interface ExploreScreenProps {
@@ -24,6 +25,7 @@ interface ExploreScreenProps {
   onLoadMore?: () => void;
   hasMore?: boolean;
   isLoadingMore?: boolean;
+  isLoading?: boolean;
 }
 
 export const ExploreScreen: React.FC<ExploreScreenProps> = ({
@@ -35,6 +37,7 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({
   onLoadMore,
   hasMore,
   isLoadingMore,
+  isLoading = false,
 }) => {
   const { theme, language } = usePreferences();
   const { t } = useTranslation();
@@ -258,7 +261,13 @@ export const ExploreScreen: React.FC<ExploreScreenProps> = ({
 
         {/* Liste des résultats */}
         <View style={styles.resultsContainer}>
-          {exploreResults.length === 0 ? (
+          {isLoading && exploreResults.length === 0 ? (
+            <>
+              <ExploreActivityCardSkeleton />
+              <ExploreActivityCardSkeleton />
+              <ExploreActivityCardSkeleton />
+            </>
+          ) : exploreResults.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Ionicons name="search-outline" size={48} color={theme.textMuted} />
               <Text style={[styles.emptyText, { color: theme.textMuted }]}>

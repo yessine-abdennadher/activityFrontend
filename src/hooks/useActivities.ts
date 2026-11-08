@@ -16,7 +16,7 @@ export function useActivities(filters?: ActivityFilters) {
   const activitiesQuery = useQuery({
     queryKey: ['activities', filters || {}],
     queryFn: () => getActivities(filters),
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 30, // 30 secondes pour une synchronisation rapide des modifications
   });
 
   const categoriesQuery = useQuery({
@@ -47,7 +47,7 @@ export function useInfiniteActivities(filters?: ActivityFilters) {
       getPaginatedActivities({ ...filters, page: pageParam as number, limit: 20 }),
     initialPageParam: 1,
     getNextPageParam: (lastPage) => (lastPage.hasMore ? lastPage.page + 1 : undefined),
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 30, // 30 secondes pour une synchronisation rapide des modifications
   });
 
   const activities = useMemo(() => {

@@ -19,6 +19,7 @@ import { usePreferences } from '../context/AppPreferencesContext';
 import { useLocation } from '../context/LocationContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { CompactActivityCard } from '../components/home/CompactActivityCard';
+import { CompactCardSkeleton } from '../components/home/CompactCardSkeleton';
 import { PartnerEventsSection } from '../components/home/PartnerEventsSection';
 import { PartnerPromosSection } from '../components/home/PartnerPromosSection';
 import { AiChatbotTeaserCard } from '../components/home/AiChatbotTeaserCard';
@@ -27,6 +28,7 @@ import { calculateDistanceKm, formatDistance } from '../services/googleMapsServi
 import { getActivityLocalizedText } from '../services/activityService';
 import { getLocalizedCityName, getLocalizedCityBadge } from '../services/locationService';
 import type { Activity, AuthUser } from '../types';
+import { FONTS } from '../theme/typography';
 
 interface HomeScreenTabProps {
   activities: Activity[];
@@ -43,6 +45,7 @@ interface HomeScreenTabProps {
   onOpenChatbot?: () => void;
   onRefresh?: () => void;
   refreshing?: boolean;
+  isLoading?: boolean;
 }
 
 export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
@@ -60,6 +63,7 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
   onOpenChatbot,
   onRefresh,
   refreshing,
+  isLoading = false,
 }) => {
   const { isDark, theme, toggleDarkMode, language } = usePreferences();
   const { t } = useTranslation();
@@ -268,7 +272,9 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
           </View>
 
           <Text style={[styles.seeAll, { color: theme.primary }]}>
-            {trendingActivities.length} {language === 'ar' ? 'نشاط' : 'sorties'}
+            {isLoading && trendingActivities.length === 0
+              ? (language === 'ar' ? 'جاري التحميل...' : 'Chargement...')
+              : `${trendingActivities.length} ${language === 'ar' ? 'نشاط' : 'sorties'}`}
           </Text>
         </View>
 
@@ -277,17 +283,25 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalCardList}
         >
-          {trendingActivities.map((act) => (
-            <CompactActivityCard
-              key={`trending-${act.id}`}
-              activity={act as any}
-              theme={theme}
-              showDistance={false}
-              isFavorite={favorites.includes(act.id)}
-              onPress={() => onSelectActivity(act as any)}
-              onToggleFavorite={() => onToggleFavorite(act.id)}
-            />
-          ))}
+          {isLoading && trendingActivities.length === 0 ? (
+            <>
+              <CompactCardSkeleton />
+              <CompactCardSkeleton />
+              <CompactCardSkeleton />
+            </>
+          ) : (
+            trendingActivities.map((act) => (
+              <CompactActivityCard
+                key={`trending-${act.id}`}
+                activity={act as any}
+                theme={theme}
+                showDistance={false}
+                isFavorite={favorites.includes(act.id)}
+                onPress={() => onSelectActivity(act as any)}
+                onToggleFavorite={() => onToggleFavorite(act.id)}
+              />
+            ))
+          )}
         </ScrollView>
       </View>
 
@@ -314,17 +328,25 @@ export const HomeScreenTab: React.FC<HomeScreenTabProps> = ({
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalCardList}
         >
-          {nearbyActivities.map((act) => (
-            <CompactActivityCard
-              key={`nearby-${act.id}`}
-              activity={act as any}
-              theme={theme}
-              showDistance={true}
-              isFavorite={favorites.includes(act.id)}
-              onPress={() => onSelectActivity(act as any)}
-              onToggleFavorite={() => onToggleFavorite(act.id)}
-            />
-          ))}
+          {isLoading && nearbyActivities.length === 0 ? (
+            <>
+              <CompactCardSkeleton />
+              <CompactCardSkeleton />
+              <CompactCardSkeleton />
+            </>
+          ) : (
+            nearbyActivities.map((act) => (
+              <CompactActivityCard
+                key={`nearby-${act.id}`}
+                activity={act as any}
+                theme={theme}
+                showDistance={true}
+                isFavorite={favorites.includes(act.id)}
+                onPress={() => onSelectActivity(act as any)}
+                onToggleFavorite={() => onToggleFavorite(act.id)}
+              />
+            ))
+          )}
         </ScrollView>
       </View>
 
@@ -530,6 +552,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   headerTitle: {
+    fontFamily: FONTS.outfitBlack,
     fontSize: 26,
     fontWeight: '900',
     color: '#FFFFFF',
@@ -538,6 +561,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerSub: {
+    fontFamily: FONTS.interRegular,
     fontSize: 13,
     color: 'rgba(255, 255, 255, 0.92)',
     lineHeight: 18,
@@ -555,6 +579,7 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   searchInput: {
+    fontFamily: FONTS.interSemiBold,
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
@@ -584,15 +609,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   sectionTitle: {
+    fontFamily: FONTS.outfitBold,
     fontSize: 17,
     fontWeight: '800',
   },
   sectionSubtitle: {
+    fontFamily: FONTS.interMedium,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 1,
   },
   seeAll: {
+    fontFamily: FONTS.outfitBold,
     fontSize: 13,
     fontWeight: '800',
   },

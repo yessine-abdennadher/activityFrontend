@@ -1,9 +1,21 @@
+/**
+ * FloatingTabBar.tsx
+ * Barre de navigation flottante ultra-fine style iPhone / iOS (Slim 42px).
+ *
+ * 3 corrections majeures :
+ * 1. Hauteur minimisée (42px) : ultra-fine, profil épuré et compact.
+ * 2. Suppression totale du border blanc autour de la sphère (orbe 3D pur sans anneau).
+ * 3. Suppression des points sous les icônes (Icon-only pur, seule la couleur change).
+ */
+
 import React, { useRef, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Animated, Easing } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemeColors } from '../theme/theme';
 import { useTranslation } from '../hooks/useTranslation';
+import { usePreferences } from '../context/AppPreferencesContext';
+import { KharjaBotOrb } from './chatbot/ui/KharjaBotOrb';
 
 export type TabKey = 'home' | 'explore' | 'chat' | 'favorites' | 'notifications' | 'profile';
 
@@ -28,39 +40,28 @@ const TabButton: React.FC<{
   badgeCount?: number;
   onPress: () => void;
 }> = ({ tab, isActive, theme, badgeCount, onPress }) => {
+  const { isDark } = usePreferences();
   const scale = useRef(new Animated.Value(1)).current;
-  const activeAnim = useRef(new Animated.Value(isActive ? 1 : 0)).current;
-  const iconTranslateY = useRef(new Animated.Value(isActive ? -2 : 0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
+
+  const isChat = tab.key === 'chat';
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(activeAnim, {
-        toValue: isActive ? 1 : 0,
-        duration: 220,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: false,
-      }),
-      Animated.spring(iconTranslateY, {
-        toValue: isActive ? -2 : 0,
-        tension: 300,
-        friction: 20,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  }, [isActive]);
+    Animated.spring(translateY, {
+      toValue: isActive ? (isChat ? -12 : -1) : (isChat ? -8 : 0),
+      tension: 320,
+      friction: 22,
+      useNativeDriver: true,
+    }).start();
+  }, [isActive, isChat]);
 
   const handlePressIn = () => {
-    Animated.spring(scale, { toValue: 0.92, useNativeDriver: false, speed: 50 }).start();
+    Animated.spring(scale, { toValue: 0.9, useNativeDriver: true, speed: 50 }).start();
   };
 
   const handlePressOut = () => {
-    Animated.spring(scale, { toValue: 1, useNativeDriver: false, speed: 30, bounciness: 10 }).start();
+    Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30, bounciness: 12 }).start();
   };
-
-  const pillWidth = activeAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [42, 98],
-  });
 
   return (
     <TouchableOpacity
@@ -68,52 +69,45 @@ const TabButton: React.FC<{
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={0.88}
-      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+      hitSlop={isChat ? { top: 16, bottom: 8, left: 8, right: 8 } : { top: 8, bottom: 8, left: 6, right: 6 }}
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}
       accessibilityLabel={tab.label}
-      style={styles.tabWrapper}
+      style={[styles.tabWrapper, isChat && styles.chatTabWrapper]}
     >
-      <Animated.View style={[{ transform: [{ scale }] }, styles.tabContentCenter]}>
-        <Animated.View
-          style={[
-            styles.activePill,
-            {
-              width: pillWidth,
-              backgroundColor: theme.primary,
-              opacity: activeAnim,
-              shadowColor: theme.primary,
-            },
-          ]}
-        />
-        <View style={styles.tabInner}>
-          <Animated.View style={{ transform: [{ translateY: iconTranslateY }] }}>
+      <Animated.View
+        style={[
+          styles.tabContentCenter,
+          isChat && styles.chatContentCenter,
+          {
+            transform: [{ scale }, { translateY }],
+          },
+        ]}
+      >
+        {isChat ? (
+          /* ── Onglet Central KharjaBot : Orbe 3D pur SANS aucun border blanc ── */
+          <View style={styles.protrudingOrbContainer}>
+            <KharjaBotOrb
+              size={isActive ? 44 : 38}
+              animated={isActive}
+            />
+          </View>
+        ) : (
+          /* ── Onglets Standards : Icônes épurées (couleur seule, SANS point en dessous) ── */
+          <View style={styles.iconWrapper}>
             <Ionicons
               name={isActive ? tab.activeIcon : tab.icon}
-              size={22}
-              color={isActive ? '#FFFFFF' : theme.textMuted}
+              size={21}
+              color={isActive ? (isDark ? '#38BDF8' : theme.primary) : theme.textMuted}
             />
+
             {!!badgeCount && badgeCount > 0 && (
               <View style={[styles.badge, { borderColor: theme.tabBarBg }]}>
                 <Text style={styles.badgeText}>{badgeCount > 9 ? '9+' : badgeCount}</Text>
               </View>
             )}
-          </Animated.View>
-
-          {isActive && (
-            <Animated.Text
-              numberOfLines={1}
-              style={[
-                styles.tabLabel,
-                {
-                  opacity: activeAnim,
-                },
-              ]}
-            >
-              {tab.label}
-            </Animated.Text>
-          )}
-        </View>
+          </View>
+        )}
       </Animated.View>
     </TouchableOpacity>
   );
@@ -138,7 +132,7 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
 
   return (
     <View
-      style={[styles.bottomBarContainer, { bottom: Math.max(insets.bottom, 14) + 10 }]}
+      style={[styles.bottomBarContainer, { bottom: Math.max(insets.bottom, 16) + 14 }]}
       pointerEvents="box-none"
     >
       <View
@@ -169,74 +163,80 @@ export const FloatingTabBar: React.FC<FloatingTabBarProps> = ({
 const styles = StyleSheet.create({
   bottomBarContainer: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     zIndex: 9999,
     elevation: 25,
+    overflow: 'visible',
   },
   floatingTabBar: {
-    height: 64,
-    borderRadius: 32,
+    width: '78%',
+    maxWidth: 295,
+    height: 42,
+    borderRadius: 21,
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     paddingHorizontal: 8,
-    borderWidth: 1.5,
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 20,
+    borderWidth: 1,
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 10,
+    overflow: 'visible',
   },
   tabWrapper: {
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
+    flex: 1,
+    overflow: 'visible',
+  },
+  chatTabWrapper: {
+    zIndex: 10,
   },
   tabContentCenter: {
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
+    overflow: 'visible',
+  },
+  chatContentCenter: {
+    width: 44,
     height: 44,
   },
-  activePill: {
-    position: 'absolute',
-    height: 44,
-    borderRadius: 22,
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  tabInner: {
-    flexDirection: 'row',
+  protrudingOrbContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    zIndex: 2,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  iconWrapper: {
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 34,
+    height: 34,
   },
   badge: {
     position: 'absolute',
-    top: -5,
-    right: -9,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: 0,
+    right: 0,
+    minWidth: 14,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#EF4444',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5,
+    paddingHorizontal: 2.5,
+    borderWidth: 1.2,
   },
   badgeText: {
     color: '#FFFFFF',
-    fontSize: 9,
+    fontSize: 8.5,
     fontWeight: '800',
-  },
-  tabLabel: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-    marginRight: 2,
   },
 });

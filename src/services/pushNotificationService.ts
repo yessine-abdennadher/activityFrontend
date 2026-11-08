@@ -120,8 +120,10 @@ export async function setNotificationsEnabled(enabled: boolean, language: string
     await registerForPushNotificationsAsync();
     await scheduleLocalNotificationsAsync(language);
   } else {
-    // Annulation de toutes les alertes planifiées
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    // Annulation de toutes les alertes planifiées (uniquement sur mobile natif)
+    if (Platform.OS !== 'web') {
+      await Notifications.cancelAllScheduledNotificationsAsync();
+    }
     console.log('[pushNotificationService] 🔕 Toutes les notifications planifiées ont été annulées.');
   }
 }
@@ -132,6 +134,11 @@ import { getRandomizedSchedule, NOTIFICATION_SLOTS } from '../data/notificationT
  * Planifie les alertes récurrentes avec variation aléatoire de styles (évite la répétition hebdomadaire)
  */
 export async function scheduleLocalNotificationsAsync(lang: string = 'fr'): Promise<void> {
+  // Les notifications locales planifiées ne sont pas supportées sur Web
+  if (Platform.OS === 'web') {
+    return;
+  }
+
   const isEnabled = await getNotificationsEnabled();
   if (!isEnabled) {
     console.log('[pushNotificationService] Notifications désactivées par l\'utilisateur, planification ignorée.');

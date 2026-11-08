@@ -46,7 +46,7 @@ export const ActivityDetailHero: React.FC<ActivityDetailHeroProps> = ({
       <Image
         accessibilityLabel={localizedName}
         accessibilityRole="image"
-        source={{ uri: activity.image }}
+        source={{ uri: activity.imageUrl || activity.image }}
         style={styles.heroImage}
       />
       <View style={styles.heroShade} />

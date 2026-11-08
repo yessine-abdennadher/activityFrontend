@@ -25,3 +25,21 @@ for (const filePath of targetFiles) {
     }
   }
 }
+
+// Empêche l'erreur ENOENT de Chrome DevTools / debugger-frontend lorsqu'il cherche fr.json
+const debuggerLocalesDir = path.join(__dirname, '..', 'node_modules', '@react-native', 'debugger-frontend', 'dist', 'third-party', 'front_end', 'core', 'i18n', 'locales');
+if (fs.existsSync(debuggerLocalesDir)) {
+  const enJson = path.join(debuggerLocalesDir, 'en-US.json');
+  if (fs.existsSync(enJson)) {
+    const frJson = path.join(debuggerLocalesDir, 'fr.json');
+    const frFrJson = path.join(debuggerLocalesDir, 'fr-FR.json');
+    if (!fs.existsSync(frJson)) {
+      fs.copyFileSync(enJson, frJson);
+      console.log('[Patch] ✅ fr.json créé pour @react-native/debugger-frontend.');
+    }
+    if (!fs.existsSync(frFrJson)) {
+      fs.copyFileSync(enJson, frFrJson);
+      console.log('[Patch] ✅ fr-FR.json créé pour @react-native/debugger-frontend.');
+    }
+  }
+}

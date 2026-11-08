@@ -23,6 +23,7 @@ export interface Activity {
   distance: string;
   rating: number;
   image: string;
+  imageUrl?: string;
   description?: string;
   descriptionAr?: string;
   descriptionFr?: string;
@@ -282,10 +283,16 @@ export interface PartnerActivityItem {
   name: string;
   category: string;
   city: string;
+  address?: string;
+  mapsUrl?: string;
   price: number;
   description?: string;
   imageUrl?: string;
   image?: string;
+  menuImageUrl?: string;
+  menuUrl?: string;
+  instagram?: string;
+  amenities?: string[];
   phone?: string;
   whatsapp?: string;
   rating?: number;
@@ -316,9 +323,15 @@ export interface PartnerActivityInput {
   name: string;
   category: string;
   city: string;
+  address?: string;
+  mapsUrl?: string;
   price: number;
   description?: string;
   imageUrl?: string;
+  menuImageUrl?: string;
+  menuUrl?: string;
+  instagram?: string;
+  amenities?: string[];
   phone?: string;
   whatsapp?: string;
   hasPowerBackup?: boolean;
@@ -328,6 +341,20 @@ export interface PartnerActivityInput {
   closingTime?: string;
   openDays?: string[];
 }
+
+export type SubscriptionStatus = 'none' | 'pending_payment' | 'active' | 'expired' | 'cancelled';
+
+export interface PartnerSubscriptionInfo {
+  tier: PartnerTier;
+  requestedTier: PartnerTier;
+  billingCycle: 'monthly' | 'yearly';
+  status: SubscriptionStatus;
+  startedAt?: string;
+  expiresAt?: string;
+  daysRemaining: number;
+  isExpiringSoon: boolean;
+}
+
 
 
 

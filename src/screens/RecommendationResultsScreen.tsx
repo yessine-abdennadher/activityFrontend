@@ -88,7 +88,7 @@ export const RecommendationResultsScreen: React.FC<RecommendationResultsScreenPr
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.bg }]}>
-      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} {...({ backgroundColor: theme.bg } as any)} />
 
       {/* Modern Floating Top Bar (No Heavy Header) */}
       <View style={styles.topBar}>
