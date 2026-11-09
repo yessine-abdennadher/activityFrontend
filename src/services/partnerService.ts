@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from './apiConfig';
-import { getAuthToken } from './authService';
+import { fetchWithSessionRefresh, getAuthToken } from './authService';
 import type {
   PartnerActivitiesResponse,
   PartnerActivityItem,
@@ -20,7 +20,7 @@ function getHeaders(): HeadersInit {
  */
 export async function fetchPartnerMyActivities(): Promise<PartnerActivitiesResponse> {
   const url = `${getApiBaseUrl()}/activities/partner/my-activities`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'GET',
     headers: getHeaders(),
   });
@@ -40,7 +40,7 @@ export async function createPartnerActivity(
   input: PartnerActivityInput
 ): Promise<PartnerActivityItem> {
   const url = `${getApiBaseUrl()}/activities`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(input),
@@ -59,7 +59,7 @@ export async function createPartnerActivity(
  */
 export async function fetchPartnerSubscription(): Promise<PartnerSubscriptionInfo> {
   const url = `${getApiBaseUrl()}/auth/me`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'GET',
     headers: getHeaders(),
   });
@@ -91,7 +91,7 @@ export async function updatePartnerActivity(
   input: Partial<PartnerActivityInput>
 ): Promise<PartnerActivityItem> {
   const url = `${getApiBaseUrl()}/activities/${activityId}`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PUT',
     headers: getHeaders(),
     body: JSON.stringify(input),
@@ -110,7 +110,7 @@ export async function updatePartnerActivity(
  */
 export async function deletePartnerActivity(activityId: string): Promise<boolean> {
   const url = `${getApiBaseUrl()}/activities/${activityId}`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'DELETE',
     headers: getHeaders(),
   });
@@ -131,7 +131,7 @@ export async function togglePartnerPowerMode(
   powerBackupMode: boolean
 ): Promise<PartnerActivityItem> {
   const url = `${getApiBaseUrl()}/activities/partner/${activityId}/power-mode`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ powerBackupMode }),
@@ -160,7 +160,7 @@ export async function updatePartnerPromotion(
   }
 ): Promise<PartnerActivityItem> {
   const url = `${getApiBaseUrl()}/activities/partner/${activityId}/promotion`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify(promotion),
@@ -190,7 +190,7 @@ export async function addPartnerEvent(
   }
 ): Promise<PartnerActivityItem> {
   const url = `${getApiBaseUrl()}/activities/partner/${activityId}/events`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify(event),

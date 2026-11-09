@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from './apiConfig';
-import { getAuthToken } from './authService';
+import { fetchWithSessionRefresh, getAuthToken } from './authService';
 import type {
   AdminPlatformStats,
   AdminUser,
@@ -29,14 +29,14 @@ export interface AdminReviewItem {
 }
 
 export async function fetchReviewsForModeration(page = 1): Promise<{ reviews: AdminReviewItem[]; total: number; totalPages: number }> {
-  const response = await fetch(`${getApiBaseUrl()}/admin/reviews?status=pending&page=${page}&limit=20`, { headers: getHeaders() });
+  const response = await fetchWithSessionRefresh(`${getApiBaseUrl()}/admin/reviews?status=pending&page=${page}&limit=20`, { headers: getHeaders() });
   const data = await response.json();
   if (!response.ok || !data.success) throw new Error(data.message || 'Impossible de charger les avis.');
   return data;
 }
 
 export async function moderateReview(reviewId: string, status: 'approved' | 'rejected'): Promise<void> {
-  const response = await fetch(`${getApiBaseUrl()}/admin/reviews/${reviewId}/status`, {
+  const response = await fetchWithSessionRefresh(`${getApiBaseUrl()}/admin/reviews/${reviewId}/status`, {
     method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status }),
   });
   const data = await response.json();
@@ -48,7 +48,7 @@ export async function moderateReview(reviewId: string, status: 'approved' | 'rej
  */
 export async function fetchAdminStats(): Promise<AdminPlatformStats> {
   const url = `${getApiBaseUrl()}/admin/stats`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'GET',
     headers: getHeaders(),
   });
@@ -81,7 +81,7 @@ export async function fetchAdminUsers(params?: {
   if (params?.limit) query.append('limit', String(params.limit));
 
   const url = `${getApiBaseUrl()}/admin/users?${query.toString()}`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'GET',
     headers: getHeaders(),
   });
@@ -99,7 +99,7 @@ export async function fetchAdminUsers(params?: {
  */
 export async function updateUserStatus(userId: string, isActive: boolean): Promise<AdminUser> {
   const url = `${getApiBaseUrl()}/admin/users/${userId}/status`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ isActive }),
@@ -118,7 +118,7 @@ export async function updateUserStatus(userId: string, isActive: boolean): Promi
  */
 export async function updateUserRole(userId: string, role: UserRole): Promise<AdminUser> {
   const url = `${getApiBaseUrl()}/admin/users/${userId}/role`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ role }),
@@ -150,7 +150,7 @@ export async function fetchAdminActivities(params?: {
   if (params?.limit) query.append('limit', String(params.limit));
 
   const url = `${getApiBaseUrl()}/admin/activities?${query.toString()}`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'GET',
     headers: getHeaders(),
   });
@@ -171,7 +171,7 @@ export async function toggleActivityApproval(
   isApproved: boolean
 ): Promise<AdminActivityItem> {
   const url = `${getApiBaseUrl()}/admin/activities/${activityId}/approve`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ isApproved }),
@@ -193,7 +193,7 @@ export async function toggleActivityHighlight(
   field: 'isFeatured' | 'isPopular'
 ): Promise<AdminActivityItem> {
   const url = `${getApiBaseUrl()}/admin/activities/${activityId}/highlight`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ field }),
@@ -212,7 +212,7 @@ export async function toggleActivityHighlight(
  */
 export async function deleteActivityByAdmin(activityId: string): Promise<boolean> {
   const url = `${getApiBaseUrl()}/admin/activities/${activityId}`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'DELETE',
     headers: getHeaders(),
   });
@@ -228,9 +228,9 @@ export async function deleteActivityByAdmin(activityId: string): Promise<boolean
 /**
  * Récupérer les données de diagnostic et d'activité des partenaires
  */
-export async function fetchAdminDiagnostics(): Promise<any> {
+export async function fetchAdminDiagnostics(): Promise<import('../types').AdminDiagnostics> {
   const url = `${getApiBaseUrl()}/admin/diagnostics`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'GET',
     headers: getHeaders(),
   });
@@ -248,7 +248,7 @@ export async function fetchAdminDiagnostics(): Promise<any> {
  */
 export async function updatePartnerTier(partnerId: string, tier: PartnerTier): Promise<AdminUser> {
   const url = `${getApiBaseUrl()}/admin/partners/${partnerId}/tier`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ tier }),
@@ -267,7 +267,7 @@ export async function updatePartnerTier(partnerId: string, tier: PartnerTier): P
  */
 export async function toggleGlobalElectricityMode(active: boolean): Promise<{ success: boolean; electricityAlertActive: boolean }> {
   const url = `${getApiBaseUrl()}/admin/electricity-mode`;
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'PATCH',
     headers: getHeaders(),
     body: JSON.stringify({ active }),

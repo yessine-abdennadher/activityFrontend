@@ -5,7 +5,7 @@
  */
 
 import { getApiBaseUrl } from './apiConfig';
-import { getAuthToken } from './authService';
+import { fetchWithSessionRefresh, getAuthToken } from './authService';
 
 export interface UploadResult {
   success: boolean;
@@ -30,7 +30,7 @@ export async function uploadImage(
   const baseUrl = getApiBaseUrl();
   const url = `${baseUrl}/upload/image`;
 
-  const response = await fetch(url, {
+  const response = await fetchWithSessionRefresh(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

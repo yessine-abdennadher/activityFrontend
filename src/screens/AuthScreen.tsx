@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, Alert, SafeAreaView, StatusBar } from 'react-native';
+import { StyleSheet, View, Alert, SafeAreaView, StatusBar, Platform } from 'react-native';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useToast } from '../components/ui/Toast';
 import { AuthUser } from '../types';
-import { login, register, loginWithGoogle } from '../services/authService';
-import {
-  getSavedGoogleAccounts,
-  saveGoogleAccount,
-  removeGoogleAccount,
-  type SavedGoogleAccount,
-} from '../services/googleAccountsStore';
+import { AdminMfaRequiredError, login, register, verifyAdminMfa } from '../services/authService';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Architectural Auth sub-components
 import { AuthBackground } from './auth/AuthBackground';
@@ -17,7 +12,7 @@ import { AuthHeader } from './auth/AuthHeader';
 import { WelcomeAuthView } from './auth/WelcomeAuthView';
 import { LoginView } from './auth/LoginView';
 import { SignupView } from './auth/SignupView';
-import { GoogleAuthModal } from './auth/GoogleAuthModal';
+import { AdminMfaChallengeView } from './auth/AdminMfaChallengeView';
 
 interface AuthScreenProps {
   initialMode?: 'welcome' | 'login' | 'signup';
@@ -32,6 +27,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 }) => {
   const { isDark } = usePreferences();
   const toast = useToast();
+  const { t } = useTranslation();
 
   const [mode, setMode] = useState<'welcome' | 'login' | 'signup'>(initialMode);
   const [selectedRole, setSelectedRole] = useState<'user' | 'partner'>('user');
@@ -45,15 +41,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   // Status states
   const [isLoading, setIsLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
-
-  // Google Modal states
-  const [showGoogleModal, setShowGoogleModal] = useState(false);
-  const [savedAccounts, setSavedAccounts] = useState<SavedGoogleAccount[]>(getSavedGoogleAccounts());
+  const [mfaChallenge, setMfaChallenge] = useState<{ challengeId: string; maskedEmail: string } | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
 
   const handleHeaderBack = () => {
+    if (mfaChallenge) {
+      setMfaChallenge(null);
+      setMfaCode('');
+      setAuthError(null);
+      return;
+    }
     if (mode === 'login' || mode === 'signup') {
       setMode('welcome');
       setAuthError(null);
@@ -63,6 +62,12 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   const handleEmailAuth = async () => {
+    if (Platform.OS === 'web') {
+      const message = t('webAuthUnavailable');
+      setAuthError(message);
+      toast.error(message, t('error'));
+      return;
+    }
     setAuthError(null);
     setAuthSuccess(null);
 
@@ -75,16 +80,16 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
 
     if (mode === 'signup') {
+      if (selectedRole === 'partner') {
+        const msg = t('partnerSignupVerifiedFlow');
+        setAuthError(msg);
+        toast.error(msg, t('partnerSignupTitle'));
+        return;
+      }
       if (!fullName.trim()) {
         const msg = 'Veuillez renseigner votre nom complet.';
         setAuthError(msg);
         toast.error(msg, 'Nom requis');
-        return;
-      }
-      if (selectedRole === 'partner' && !establishmentName.trim()) {
-        const msg = "Veuillez renseigner le nom de votre établissement (ex: restaurant, café).";
-        setAuthError(msg);
-        toast.error(msg, 'Nom d’établissement requis');
         return;
       }
       if (password !== confirmPassword) {
@@ -100,7 +105,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       const authenticatedUser =
         mode === 'login'
           ? await login(cleanEmail, password)
-          : await register(fullName.trim(), cleanEmail, password, selectedRole, establishmentName.trim());
+          : await register(fullName.trim(), cleanEmail, password);
 
       const successMsg =
         mode === 'login'
@@ -113,6 +118,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         onSuccess(authenticatedUser);
       }
     } catch (error) {
+      if (error instanceof AdminMfaRequiredError) {
+        setMfaChallenge({ challengeId: error.challengeId, maskedEmail: error.maskedEmail });
+        setMfaCode('');
+        return;
+      }
       const errorMsg =
         error instanceof Error ? error.message : 'Impossible de contacter le serveur backend.';
       setAuthError(errorMsg);
@@ -122,91 +132,32 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }
   };
 
-  const handleGoogleSignInPress = () => {
-    setSavedAccounts(getSavedGoogleAccounts());
-    setShowGoogleModal(true);
-  };
-
-  const handleSelectGoogleAccount = async (account: SavedGoogleAccount) => {
-    setGoogleLoading(true);
-    try {
-      const authenticatedUser = await loginWithGoogle({
-        email: account.email,
-        name: account.name,
-        avatar: account.avatar,
-        googleId:
-          'google_' +
-          Math.abs(account.email.split('').reduce((acc, c) => (acc << 5) - acc + c.charCodeAt(0), 0)),
-      });
-
-      saveGoogleAccount({
-        ...account,
-        lastUsed: new Date().toISOString(),
-      });
-      setSavedAccounts(getSavedGoogleAccounts());
-
-      setGoogleLoading(false);
-      setShowGoogleModal(false);
-      toast.success(`Bienvenue ${account.name} !`, 'Connexion Google réussie');
-
-      if (onSuccess) {
-        onSuccess(authenticatedUser);
-      }
-    } catch (err) {
-      setGoogleLoading(false);
-      Alert.alert('Erreur', err instanceof Error ? err.message : 'Connexion Google impossible.');
-    }
-  };
-
-  const handleAddNewGoogleAccount = async (newEmail: string, newFullName: string) => {
-    if (!newEmail || !newEmail.includes('@')) {
-      Alert.alert('Erreur', 'Veuillez saisir une adresse email valide.');
+  const handleVerifyAdminMfa = async () => {
+    if (!mfaChallenge || !/^\d{6}$/.test(mfaCode)) {
+      setAuthError(t('adminMfaInvalid'));
       return;
     }
-
-    setGoogleLoading(true);
+    setIsLoading(true);
+    setAuthError(null);
     try {
-      const cleanEmail = newEmail.trim().toLowerCase();
-      const displayName = newFullName.trim() || cleanEmail.split('@')[0];
-      const avatarUrl = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-        displayName
-      )}&background=EA4335&color=fff&size=200`;
-
-      const newAccount: SavedGoogleAccount = {
-        email: cleanEmail,
-        name: displayName,
-        avatar: avatarUrl,
-        lastUsed: new Date().toISOString(),
-      };
-
-      const authenticatedUser = await loginWithGoogle({
-        email: cleanEmail,
-        name: displayName,
-        googleId:
-          'google_' +
-          Math.abs(cleanEmail.split('').reduce((acc, c) => (acc << 5) - acc + c.charCodeAt(0), 0)),
-        avatar: avatarUrl,
-      });
-
-      saveGoogleAccount(newAccount);
-      setSavedAccounts(getSavedGoogleAccounts());
-
-      setGoogleLoading(false);
-      setShowGoogleModal(false);
-      toast.success(`Bienvenue ${authenticatedUser.name} !`, 'Compte Google synchronisé');
-
-      if (onSuccess) {
-        onSuccess(authenticatedUser);
-      }
-    } catch (err) {
-      setGoogleLoading(false);
-      Alert.alert('Erreur', err instanceof Error ? err.message : 'Connexion Google impossible.');
+      const authenticatedUser = await verifyAdminMfa(mfaChallenge.challengeId, mfaCode);
+      setMfaChallenge(null);
+      setMfaCode('');
+      onSuccess?.(authenticatedUser);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : t('adminMfaInvalid');
+      setAuthError(errorMsg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleDeleteSavedGoogleAccount = (targetEmail: string) => {
-    const updated = removeGoogleAccount(targetEmail);
-    setSavedAccounts(updated);
+  const handleGoogleSignInPress = () => {
+    if (Platform.OS === 'web') {
+      Alert.alert(t('googleSignInUnavailableTitle'), t('webAuthUnavailable'));
+      return;
+    }
+    Alert.alert(t('googleSignInUnavailableTitle'), t('googleSignInUnavailableMessage'));
   };
 
   return (
@@ -244,7 +195,23 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
           )}
 
           {mode === 'login' && (
-            <LoginView
+            mfaChallenge ? (
+              <AdminMfaChallengeView
+                maskedEmail={mfaChallenge.maskedEmail}
+                code={mfaCode}
+                setCode={setMfaCode}
+                error={authError}
+                isLoading={isLoading}
+                isDark={isDark}
+                title={t('adminMfaTitle')}
+                instructions={t('adminMfaInstructions')}
+                codeLabel={t('adminMfaCodeLabel')}
+                verifyLabel={t('adminMfaVerify')}
+                backLabel={t('adminMfaBack')}
+                onVerify={handleVerifyAdminMfa}
+                onBack={handleHeaderBack}
+              />
+            ) : <LoginView
               email={email}
               setEmail={setEmail}
               password={password}
@@ -252,7 +219,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               onSubmit={handleEmailAuth}
               isLoading={isLoading}
               onGooglePress={handleGoogleSignInPress}
-              googleLoading={googleLoading}
+              googleLoading={false}
               onSwitchToSignup={() => {
                 setMode('signup');
                 setAuthError(null);
@@ -281,7 +248,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               onSubmit={handleEmailAuth}
               isLoading={isLoading}
               onGooglePress={handleGoogleSignInPress}
-              googleLoading={googleLoading}
+              googleLoading={false}
               onSwitchToLogin={() => {
                 setMode('login');
                 setAuthError(null);
@@ -295,17 +262,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
         </View>
       </SafeAreaView>
 
-      {/* Google Accounts Picker Modal */}
-      <GoogleAuthModal
-        visible={showGoogleModal}
-        onClose={() => setShowGoogleModal(false)}
-        savedAccounts={savedAccounts}
-        onSelectAccount={handleSelectGoogleAccount}
-        onAddNewAccount={handleAddNewGoogleAccount}
-        onDeleteSavedAccount={handleDeleteSavedGoogleAccount}
-        isLoading={googleLoading}
-        isDark={isDark}
-      />
     </View>
   );
 };

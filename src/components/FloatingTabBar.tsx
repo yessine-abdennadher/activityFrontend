@@ -48,7 +48,7 @@ const TabButton: React.FC<{
 
   useEffect(() => {
     Animated.spring(translateY, {
-      toValue: isActive ? (isChat ? -12 : -1) : (isChat ? -8 : 0),
+      toValue: isActive ? (isChat ? -16 : -1) : (isChat ? -12 : 0),
       tension: 320,
       friction: 22,
       useNativeDriver: true,
@@ -69,7 +69,7 @@ const TabButton: React.FC<{
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       activeOpacity={0.88}
-      hitSlop={isChat ? { top: 16, bottom: 8, left: 8, right: 8 } : { top: 8, bottom: 8, left: 6, right: 6 }}
+      hitSlop={isChat ? { top: 20, bottom: 10, left: 10, right: 10 } : { top: 8, bottom: 8, left: 6, right: 6 }}
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}
       accessibilityLabel={tab.label}
@@ -85,10 +85,10 @@ const TabButton: React.FC<{
         ]}
       >
         {isChat ? (
-          /* ── Onglet Central KharjaBot : Orbe 3D pur SANS aucun border blanc ── */
+          /* ── Onglet Central KharjaBot : Orbe 3D saillant agrandi ── */
           <View style={styles.protrudingOrbContainer}>
             <KharjaBotOrb
-              size={isActive ? 44 : 38}
+              size={isActive ? 54 : 48}
               animated={isActive}
             />
           </View>
@@ -173,7 +173,7 @@ const styles = StyleSheet.create({
   floatingTabBar: {
     width: '78%',
     maxWidth: 295,
-    height: 42,
+    height: 48,
     borderRadius: 21,
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -197,18 +197,20 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   tabContentCenter: {
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
     overflow: 'visible',
   },
   chatContentCenter: {
-    width: 44,
-    height: 44,
+    width: 54,
+    height: 54,
   },
   protrudingOrbContainer: {
+    width: 54,
+    height: 54,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -218,8 +220,8 @@ const styles = StyleSheet.create({
     position: 'relative',
     alignItems: 'center',
     justifyContent: 'center',
-    width: 34,
-    height: 34,
+    width: 40,
+    height: 40,
   },
   badge: {
     position: 'absolute',

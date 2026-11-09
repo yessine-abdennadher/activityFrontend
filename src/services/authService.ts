@@ -1,10 +1,30 @@
 import { getApiBaseUrl, getFallbackApiUrls, setApiBaseUrl } from './apiConfig';
+import { Platform } from 'react-native';
 import { USER_PERMISSIONS } from '../types';
 import type { AuthUser, UserPermission, UserRole, UserType, PartnerTier } from '../types';
 import { Storage, STORAGE_KEYS } from './storage';
 
 let accessToken: string | null = null;
 let refreshToken: string | null = null;
+let refreshInFlight: Promise<string | null> | null = null;
+
+function requireNativeAuthentication(): void {
+  if (Platform.OS === 'web') {
+    throw new Error('La connexion de l’application est réservée à iOS et Android.');
+  }
+}
+
+export class AdminMfaRequiredError extends Error {
+  challengeId: string;
+  maskedEmail: string;
+
+  constructor(challengeId: string, maskedEmail: string) {
+    super('Une vérification administrateur par email est nécessaire.');
+    this.name = 'AdminMfaRequiredError';
+    this.challengeId = challengeId;
+    this.maskedEmail = maskedEmail;
+  }
+}
 
 export function getAuthToken(): string | null {
   return accessToken;
@@ -18,6 +38,16 @@ export function getRefreshToken(): string | null {
  * Restaure la session de l'utilisateur au démarrage de l'application
  */
 export async function restoreSession(): Promise<AuthUser | null> {
+  if (Platform.OS === 'web') {
+    accessToken = null;
+    refreshToken = null;
+    await Promise.all([
+      Storage.removeItem(STORAGE_KEYS.ACCESS_TOKEN),
+      Storage.removeItem(STORAGE_KEYS.REFRESH_TOKEN),
+      Storage.removeItem(STORAGE_KEYS.CURRENT_USER),
+    ]);
+    return null;
+  }
   try {
     const savedToken = await Storage.getItem(STORAGE_KEYS.ACCESS_TOKEN);
     const savedRefresh = await Storage.getItem(STORAGE_KEYS.REFRESH_TOKEN);
@@ -67,6 +97,7 @@ function mapUser(user: {
 }
 
 async function persistSession(token: string | null, refresh: string | null, user: AuthUser): Promise<void> {
+  if (!token || !refresh) throw new Error('Le serveur a renvoyé une session incomplète.');
   accessToken = token;
   refreshToken = refresh;
   if (token) await Storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
@@ -95,6 +126,21 @@ async function fetchWithTimeout(url: string, options: RequestInit = {}, timeoutM
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function fetchWithSessionRefresh(url: string, options: RequestInit = {}): Promise<Response> {
+  const send = (token: string | null) => {
+    const headers = new Headers(options.headers);
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    return fetch(url, { ...options, headers });
+  };
+
+  let response = await send(accessToken);
+  if (response.status === 401 && refreshToken) {
+    const freshToken = await refreshAccessToken();
+    if (freshToken) response = await send(freshToken);
+  }
+  return response;
 }
 
 /**
@@ -132,14 +178,18 @@ async function fetchAuthWithFallback(endpoint: string, options: RequestInit = {}
 }
 
 export async function login(email: string, password: string): Promise<AuthUser> {
+  requireNativeAuthentication();
   const normalizedEmail = (email || '').trim().toLowerCase();
   const response = await fetchAuthWithFallback('/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: normalizedEmail, password: password?.trim() }),
+    body: JSON.stringify({ email: normalizedEmail, password }),
   });
 
   const payload = await response.json();
+  if (payload.mfaRequired && payload.challengeId) {
+    throw new AdminMfaRequiredError(payload.challengeId, payload.maskedEmail || 'votre adresse email');
+  }
   if (!response.ok) {
     throw new Error(payload.message || 'Erreur lors de la connexion.');
   }
@@ -152,17 +202,30 @@ export async function login(email: string, password: string): Promise<AuthUser> 
   return mappedUser;
 }
 
+export async function verifyAdminMfa(challengeId: string, code: string): Promise<AuthUser> {
+  requireNativeAuthentication();
+  const response = await fetchAuthWithFallback('/auth/admin/mfa/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ challengeId, otp: code }),
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.message || 'Impossible de vérifier le code administrateur.');
+  const mappedUser = mapUser(payload.user);
+  await persistSession(payload.accessToken || payload.token, payload.refreshToken || null, mappedUser);
+  return mappedUser;
+}
+
 export async function register(
   name: string,
   email: string,
-  password: string,
-  role: UserRole = 'user',
-  establishmentName: string = ''
+  password: string
 ): Promise<AuthUser> {
+  requireNativeAuthentication();
   const response = await fetchAuthWithFallback('/auth/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, email, password, role, establishmentName }),
+    body: JSON.stringify({ name, email, password }),
   });
 
   const payload = await response.json();
@@ -178,18 +241,13 @@ export async function register(
   return mappedUser;
 }
 
-export async function loginWithGoogle(googleData: {
-  idToken?: string;
-  accessToken?: string;
-  email?: string;
-  name?: string;
-  avatar?: string;
-  googleId?: string;
-}): Promise<AuthUser> {
+export async function loginWithGoogle(idToken: string): Promise<AuthUser> {
+  requireNativeAuthentication();
+  if (!idToken?.trim()) throw new Error('Un jeton Google vérifié est obligatoire.');
   const response = await fetchAuthWithFallback('/auth/google', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(googleData),
+    body: JSON.stringify({ idToken }),
   });
 
   const payload = await response.json();
@@ -206,48 +264,51 @@ export async function loginWithGoogle(googleData: {
 }
 
 export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshInFlight) return refreshInFlight;
   if (!refreshToken) return null;
 
-  try {
-    const baseUrl = getApiBaseUrl();
-    const response = await fetch(`${baseUrl}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
-    });
+  refreshInFlight = (async () => {
+    try {
+      const baseUrl = getApiBaseUrl();
+      const response = await fetch(`${baseUrl}/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
 
-    const payload = await response.json();
-    if (!response.ok) {
+      const payload = await response.json();
+      if (!response.ok || !payload.accessToken || !payload.refreshToken) {
+        await logout();
+        return null;
+      }
+
+      const newAccessToken: string = payload.accessToken;
+      const newRefreshToken: string = payload.refreshToken;
+      accessToken = newAccessToken;
+      refreshToken = newRefreshToken;
+      await Promise.all([
+        Storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, newAccessToken),
+        Storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, newRefreshToken),
+      ]);
+
+      return accessToken;
+    } catch {
       await logout();
       return null;
+    } finally {
+      refreshInFlight = null;
     }
-
-    accessToken = payload.accessToken;
-    if (payload.refreshToken) {
-      refreshToken = payload.refreshToken;
-      await Storage.setItem(STORAGE_KEYS.REFRESH_TOKEN, payload.refreshToken);
-    }
-    if (accessToken) {
-      await Storage.setItem(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
-    }
-
-    return accessToken;
-  } catch (err) {
-    await logout();
-    return null;
-  }
+  })();
+  return refreshInFlight;
 }
 
 export async function logout(): Promise<void> {
-  if (accessToken && refreshToken) {
+  if (refreshToken) {
     try {
       const baseUrl = getApiBaseUrl();
       await fetch(`${baseUrl}/auth/logout`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken }),
       });
     } catch {
@@ -280,7 +341,7 @@ export async function updateUserAvatar(newAvatarUrl: string): Promise<AuthUser |
 
     if (accessToken) {
       try {
-        const response = await fetchAuthWithFallback('/auth/profile', {
+        const response = await fetchWithSessionRefresh(`${getApiBaseUrl()}/auth/profile`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -317,7 +378,7 @@ export async function fetchCurrentUserProfile(): Promise<AuthUser | null> {
   }
 
   try {
-    const response = await fetchAuthWithFallback('/auth/me', {
+    const response = await fetchWithSessionRefresh(`${getApiBaseUrl()}/auth/me`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from './apiConfig';
-import { getAuthToken } from './authService';
+import { fetchWithSessionRefresh, getAuthToken } from './authService';
 
 let currentSessionId = 'session_' + Math.random().toString(36).substring(2, 12) + '_' + Date.now();
 let lastTrackedScreen = '';
@@ -26,7 +26,7 @@ async function sendTelemetry(
       headers.Authorization = `Bearer ${token}`;
     }
 
-    fetch(url, {
+    fetchWithSessionRefresh(url, {
       method: 'POST',
       headers,
       body: JSON.stringify({

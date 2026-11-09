@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,25 +9,16 @@ import {
   Switch,
   ActivityIndicator,
   Alert,
-  Image,
   RefreshControl,
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { usePreferences } from '../context/AppPreferencesContext';
+import { usePreferences } from '../../context/AppPreferencesContext';
 import {
   fetchAdminStats,
-  fetchAdminUsers,
-  updateUserStatus,
   updateUserRole,
-  fetchAdminActivities,
-  toggleActivityApproval,
-  toggleActivityHighlight,
-  deleteActivityByAdmin,
-  fetchAdminDiagnostics,
   updatePartnerTier,
-  toggleGlobalElectricityMode,
-} from '../services/adminService';
+} from '../../services/adminService';
 import {
   AdminPlatformStats,
   AdminUser,
@@ -35,11 +26,20 @@ import {
   AuthUser,
   UserRole,
   PartnerTier,
-} from '../types';
-import { AdminDiagnosticsTab } from '../components/admin/AdminDiagnosticsTab';
-import { PartnerTierModal } from '../components/admin/PartnerTierModal';
-import { ReviewModerationTab } from '../components/admin/ReviewModerationTab';
-import { useTranslation } from '../hooks/useTranslation';
+} from '../../types';
+import { AdminDiagnosticsTab } from '../../components/admin/AdminDiagnosticsTab';
+import { AdminPartnersTab } from '../../components/admin/AdminPartnersTab';
+import { PartnerTierModal } from '../../components/admin/PartnerTierModal';
+import { ReviewModerationTab } from '../../components/admin/ReviewModerationTab';
+import { useTranslation } from '../../hooks/useTranslation';
+import { useAdminActivities } from '../../hooks/admin/useAdminActivities';
+import { useAdminUsers } from '../../hooks/admin/useAdminUsers';
+import { useAdminDiagnostics } from '../../hooks/admin/useAdminDiagnostics';
+import { AdminDashboardHeader } from '../../components/admin/AdminDashboardHeader';
+import { AdminDashboardTabs, AdminDashboardTab } from '../../components/admin/AdminDashboardTabs';
+import { ActivityModerationCard } from '../../components/admin/ActivityModerationCard';
+import { ScrollableModal } from '../../components/ui/ScrollableModal';
+import { getUserRoleBadge, getPartnerTierBadge, getStatusBadge } from '../../components/admin/adminBadges';
 
 interface AdminDashboardScreenProps {
   currentUser: AuthUser | null;
@@ -52,22 +52,71 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   onBack,
   onUpdateUser,
 }) => {
-  const { isDark, theme, language, setElectricityAlertActive } = usePreferences();
+  const { theme, isDark, language, setElectricityAlertActive } = usePreferences();
   const { t } = useTranslation();
 
   // Navigation tab inside Admin Dashboard
-  const [activeTab, setActiveTab] = useState<'kpi' | 'activities' | 'reviews' | 'users' | 'diagnostics'>('kpi');
+  const [activeTab, setActiveTab] = useState<AdminDashboardTab>('kpi');
 
-  // Loading & Refreshing states
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  // Data states
   const [stats, setStats] = useState<AdminPlatformStats | null>(null);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [activities, setActivities] = useState<AdminActivityItem[]>([]);
-  const [diagnosticsData, setDiagnosticsData] = useState<any>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const activityAdmin = useAdminActivities();
+  const userAdmin = useAdminUsers();
+  const diagnosticsAdmin = useAdminDiagnostics();
+  const { activities } = activityAdmin;
+  const { users } = userAdmin;
+  const diagnosticsData = diagnosticsAdmin.diagnostics;
+
+  // Liste enrichie des partenaires avec repli instantané sur les utilisateurs de rôle 'partner'
+  const effectivePartnersStatus = useMemo(() => {
+    if (diagnosticsData?.partnersStatus && diagnosticsData.partnersStatus.length > 0) {
+      return diagnosticsData.partnersStatus;
+    }
+    const partnerUsers = users.filter((u) => u.role === 'partner');
+    return partnerUsers.map((u) => {
+      const partnerActs = activities.filter(
+        (a) => a.createdBy?._id === u._id || (a.createdBy?._id && a.createdBy._id === u.id)
+      );
+      const partnerOffers = partnerActs
+        .filter((a) => (a as any).promotion?.isPromo)
+        .map((a) => ({
+          activityId: a._id,
+          activityName: a.name,
+          promoLabel: (a as any).promotion?.promoLabel || 'Offre promotionnelle',
+          discountPercent: (a as any).promotion?.discountPercent || 0,
+          targetItem: (a as any).promotion?.targetItem || '',
+          promoType: (a as any).promotion?.promoType || 'all',
+          validUntil: (a as any).promotion?.validUntil || '',
+        }));
+
+      return {
+        id: u._id,
+        name: u.name,
+        email: u.email,
+        establishmentName: u.establishmentName || u.name,
+        partnerTier: u.partnerTier || 'standard',
+        activityCount: partnerActs.length,
+        isInactive: !u.isActive,
+        hasStaleData: false,
+        city: u.city,
+        createdAt: u.createdAt,
+        lastLogin: u.lastLogin,
+        lastActivityUpdate: u.lastActivityUpdate,
+        activities: partnerActs.map((a) => ({
+          id: a._id,
+          name: a.name,
+          category: a.category,
+          price: a.price,
+          isApproved: a.isApproved,
+          isFeatured: a.isFeatured,
+          isPopular: a.isPopular,
+          promotion: (a as any).promotion,
+        })),
+        offers: partnerOffers,
+      };
+    });
+  }, [diagnosticsData?.partnersStatus, users, activities]);
 
   // Filters for Activities
   const [activityStatusFilter, setActivityStatusFilter] = useState<'all' | 'pending' | 'approved'>('all');
@@ -75,6 +124,13 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   // Filters for Users
   const [userSearch, setUserSearch] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<string>('all');
+
+  // Utilisateurs grand public et administrateurs uniquement (les partenaires sont gérés dans l'onglet Partenaires)
+  const regularUsers = useMemo(() => {
+    const nonPartners = users.filter((u) => u.role !== 'partner');
+    if (userRoleFilter === 'all') return nonPartners;
+    return nonPartners.filter((u) => u.role === userRoleFilter);
+  }, [users, userRoleFilter]);
 
   // Role selection modal for users
   const [selectedUserForRole, setSelectedUserForRole] = useState<AdminUser | null>(null);
@@ -84,91 +140,47 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   const [selectedPartnerForTier, setSelectedPartnerForTier] = useState<AdminUser | null>(null);
   const [partnerTierModalVisible, setPartnerTierModalVisible] = useState(false);
 
-  // Load KPI Stats
   const loadStats = useCallback(async () => {
-    try {
-      const data = await fetchAdminStats();
-      setStats(data);
-    } catch (err: any) {
-      console.error('[AdminDashboard] Erreur chargement stats:', err.message);
-      setErrorMessage(err.message || 'Erreur lors du chargement des statistiques.');
-    }
-  }, []);
+    setStatsLoading(true);
+    setStatsError(null);
+    try { setStats(await fetchAdminStats()); }
+    catch (cause) {
+      const message = cause instanceof Error ? cause.message : 'Erreur lors du chargement des statistiques.';
+      setStatsError(t('adminSectionLoadError'));
+      console.error('[AdminDashboard] Erreur chargement stats:', message);
+    } finally { setStatsLoading(false); }
+  }, [t]);
 
-  // Load Diagnostics & Partner Telemetry
-  const loadDiagnostics = useCallback(async () => {
-    try {
-      const data = await fetchAdminDiagnostics();
-      setDiagnosticsData(data);
-    } catch (err: any) {
-      console.error('[AdminDashboard] Erreur chargement diagnostics:', err.message);
-      setErrorMessage(err.message || 'Erreur lors du chargement des diagnostics.');
-    }
-  }, []);
-
-  // Load Activities for Moderation
-  const loadActivities = useCallback(async () => {
-    try {
-      const statusParam =
-        activityStatusFilter === 'all' ? undefined : activityStatusFilter;
-      const data = await fetchAdminActivities({ status: statusParam, limit: 50 });
-      setActivities(data.activities);
-    } catch (err: any) {
-      console.error('[AdminDashboard] Erreur chargement activités:', err.message);
-      setErrorMessage(err.message || 'Erreur lors du chargement des activités.');
-    }
-  }, [activityStatusFilter]);
-
-  // Load Users List
-  const loadUsers = useCallback(async () => {
-    try {
-      const roleParam = userRoleFilter === 'all' ? undefined : userRoleFilter;
-      const data = await fetchAdminUsers({
-        role: roleParam,
-        search: userSearch.trim() || undefined,
-        limit: 50,
-      });
-      setUsers(data.users);
-    } catch (err: any) {
-      console.error('[AdminDashboard] Erreur chargement utilisateurs:', err.message);
-      setErrorMessage(err.message || 'Erreur lors du chargement des utilisateurs.');
-    }
-  }, [userRoleFilter, userSearch]);
+  const loadActivities = useCallback(() => activityAdmin.load(activityStatusFilter), [activityAdmin.load, activityStatusFilter]);
+  const loadUsers = useCallback(() => userAdmin.load(userRoleFilter, userSearch), [userAdmin.load, userRoleFilter, userSearch]);
+  const loadDiagnostics = diagnosticsAdmin.load;
 
   // Enregistrer le nouveau statut Partenaire (Standard / Pro / Premium) via le modal développé
   const handleSavePartnerTier = async (partnerId: string, newTier: PartnerTier) => {
     try {
       await updatePartnerTier(partnerId, newTier);
-      if (diagnosticsData?.partnersStatus) {
-        setDiagnosticsData({
-          ...diagnosticsData,
-          partnersStatus: diagnosticsData.partnersStatus.map((p: any) =>
-            p.id === partnerId ? { ...p, partnerTier: newTier } : p
-          ),
-        });
-      }
-      setUsers((prevUsers) =>
-        prevUsers.map((u) => (u._id === partnerId ? { ...u, partnerTier: newTier } : u))
-      );
+      diagnosticsAdmin.setPartnerTier(partnerId, newTier);
+      userAdmin.updatePartnerTierLocally(partnerId, newTier);
       if (partnerId === currentUser?.id && onUpdateUser) {
         onUpdateUser({ ...currentUser, partnerTier: newTier });
       }
-      const tierTitle =
+      const tierTitle = t(
         newTier === 'premium'
-          ? 'PREMIUM 👑 (Soirées, Événements & Tête d\'affiche)'
+          ? 'adminTierPremium'
           : newTier === 'pro'
-          ? 'PRO ⭐ (Promos exclusives & Badge)'
-          : 'STANDARD (Présence de base)';
-      Alert.alert('Palier Partenaire Mis à Jour 🎉', `Le partenaire est désormais attribué au palier : ${tierTitle}`);
-    } catch (err: any) {
-      Alert.alert('Erreur', err.message || 'Impossible de mettre à jour le niveau du partenaire.');
+          ? 'adminTierPro'
+          : 'adminTierStandard'
+      );
+      Alert.alert(t('adminPartnerTierUpdated'), `${t('adminPartnerTierAssigned')} : ${tierTitle}`);
+    } catch (err) {
+      Alert.alert(t('error'), t('adminPartnerTierUpdateError'));
       throw err;
     }
   };
 
   // Ouvrir le modal d'attribution de palier depuis l'onglet Diagnostics
   const handleTogglePartnerTier = (partnerId: string, currentTier?: string) => {
-    const partnerFromDiag = diagnosticsData?.partnersStatus?.find((p: any) => p.id === partnerId);
+    const partnerFromDiag = diagnosticsData?.partnersStatus.find((p) => p.id === partnerId);
     const partnerFromUsers = users.find((u) => u._id === partnerId);
     const partnerObj: AdminUser = partnerFromUsers || {
       _id: partnerId,
@@ -186,58 +198,49 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   // Activer ou désactiver le mode alerte coupure d'électricité (Plateforme globale)
   const handleToggleGlobalElectricity = async (nextVal: boolean) => {
     try {
-      const res = await toggleGlobalElectricityMode(nextVal);
-      setDiagnosticsData((prev: any) => ({
-        ...prev,
-        electricityAlertActive: res.electricityAlertActive,
-      }));
+      const res = await diagnosticsAdmin.setElectricityMode(nextVal);
       setElectricityAlertActive(res.electricityAlertActive);
       Alert.alert(
-        res.electricityAlertActive ? 'Mode Électricité Activé ⚡💡' : 'Mode Électricité Désactivé',
+        t(res.electricityAlertActive ? 'adminElectricityEnabled' : 'adminElectricityDisabled'),
         res.electricityAlertActive
-          ? 'Tous les partenaires peuvent désormais déclarer s’ils ont de la lumière / un générateur, et les cartes affichent le badge doré !'
-          : 'Le mode électricité est désormais désactivé et repassé en veille normale.'
+          ? t('adminElectricityEnabledAlert')
+          : t('adminElectricityDisabledAlert')
       );
-    } catch (err: any) {
-      Alert.alert('Erreur', err.message || 'Impossible de modifier le mode électricité.');
+    } catch {
+      Alert.alert(t('error'), t('adminElectricityUpdateError'));
     }
   };
 
   // Initial and reactive data fetching
   const refreshCurrentTab = useCallback(async () => {
-    setErrorMessage(null);
     if (activeTab === 'kpi') {
       await loadStats();
     } else if (activeTab === 'activities') {
       await loadActivities();
     } else if (activeTab === 'users') {
       await loadUsers();
-    } else if (activeTab === 'diagnostics') {
+    } else if (activeTab === 'partners' || activeTab === 'diagnostics') {
       await loadDiagnostics();
     }
   }, [activeTab, loadStats, loadActivities, loadUsers, loadDiagnostics]);
 
   useEffect(() => {
-    setLoading(true);
-    refreshCurrentTab().finally(() => setLoading(false));
+    refreshCurrentTab();
   }, [refreshCurrentTab]);
 
   const onPullRefresh = async () => {
-    setRefreshing(true);
-    await refreshCurrentTab();
-    setRefreshing(false);
+    if (activeTab === 'kpi') await loadStats();
+    else if (activeTab === 'activities') await activityAdmin.refresh(activityStatusFilter);
+    else if (activeTab === 'users') await userAdmin.refresh(userRoleFilter, userSearch);
+    else if (activeTab === 'partners' || activeTab === 'diagnostics') await diagnosticsAdmin.refresh();
   };
 
   // Activity Moderation Handlers
   const handleToggleApproval = async (item: AdminActivityItem) => {
     try {
-      const newApprovalStatus = !item.isApproved;
-      const updated = await toggleActivityApproval(item._id, newApprovalStatus);
-      setActivities((prev) =>
-        prev.map((act) => (act._id === item._id ? { ...act, isApproved: updated.isApproved } : act))
-      );
-    } catch (err: any) {
-      Alert.alert('Erreur de modération', err.message);
+      await activityAdmin.toggleApproval(item);
+    } catch {
+      Alert.alert(t('adminModerationError'));
     }
   };
 
@@ -246,31 +249,27 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
     field: 'isFeatured' | 'isPopular'
   ) => {
     try {
-      const updated = await toggleActivityHighlight(item._id, field);
-      setActivities((prev) =>
-        prev.map((act) => (act._id === item._id ? { ...act, [field]: updated[field] } : act))
-      );
-    } catch (err: any) {
-      Alert.alert('Erreur mise en avant', err.message);
+      await activityAdmin.toggleHighlight(item, field);
+    } catch {
+      Alert.alert(t('error'), t('adminHighlightError'));
     }
   };
 
   const handleDeleteActivity = (item: AdminActivityItem) => {
     Alert.alert(
-      'Confirmation de suppression',
-      `Êtes-vous sûr de vouloir supprimer définitivement l'activité "${item.name}" ? Cette action est irréversible.`,
+      t('adminDeleteActivityConfirm'),
+      `${t('adminDeleteActivityPrompt')}\n${item.name}`,
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: t('delete'),
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteActivityByAdmin(item._id);
-              setActivities((prev) => prev.filter((act) => act._id !== item._id));
-              Alert.alert('Succès', 'Activité supprimée de la plateforme.');
-            } catch (err: any) {
-              Alert.alert('Erreur', err.message);
+              await activityAdmin.remove(item);
+              Alert.alert(t('success'), t('adminActivityDeleted'));
+            } catch {
+              Alert.alert(t('error'), t('adminActivityDeleteError'));
             }
           },
         },
@@ -281,203 +280,78 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
   // User Management Handlers
   const handleToggleUserStatus = async (user: AdminUser) => {
     if (user._id === currentUser?.id) {
-      Alert.alert('Action interdite', 'Vous ne pouvez pas suspendre votre propre compte administrateur.');
+      Alert.alert(t('error'), t('adminCannotSuspendSelf'));
       return;
     }
 
     try {
-      const newStatus = !user.isActive;
-      const updated = await updateUserStatus(user._id, newStatus);
-      setUsers((prev) =>
-        prev.map((u) => (u._id === user._id ? { ...u, isActive: updated.isActive } : u))
-      );
-    } catch (err: any) {
-      Alert.alert('Erreur statut', err.message);
+      await userAdmin.setStatus(user);
+    } catch {
+      Alert.alert(t('error'), t('adminStatusError'));
     }
   };
 
   const handleConfirmRoleChange = async (newRole: UserRole) => {
     if (!selectedUserForRole) return;
     if (selectedUserForRole._id === currentUser?.id) {
-      Alert.alert('Action interdite', 'Vous ne pouvez pas modifier votre propre rôle.');
+      Alert.alert(t('error'), t('adminCannotChangeRoleSelf'));
       setRoleModalVisible(false);
       return;
     }
 
     try {
-      const updated = await updateUserRole(selectedUserForRole._id, newRole);
-      setUsers((prev) =>
-        prev.map((u) => (u._id === selectedUserForRole._id ? { ...u, role: updated.role } : u))
-      );
+      await userAdmin.setRole(selectedUserForRole._id, newRole);
       setRoleModalVisible(false);
       setSelectedUserForRole(null);
-      Alert.alert('Succès', `Le rôle a été changé en : ${newRole}`);
-    } catch (err: any) {
-      Alert.alert('Erreur rôle', err.message);
+      const roleLabel = t(newRole === 'admin' ? 'adminRoleAdministrator' : newRole === 'partner' ? 'adminRolePartner' : 'adminRoleUser');
+      Alert.alert(t('adminRoleUpdated'), roleLabel);
+    } catch {
+      Alert.alert(t('error'), t('adminRoleError'));
     }
   };
 
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Header Admin */}
-      <View style={[styles.header, { backgroundColor: theme.cardBg, borderBottomColor: theme.cardBorder }]}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            style={[styles.backButton, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
-            onPress={onBack}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="arrow-back" size={20} color={theme.textMain} />
-          </TouchableOpacity>
-          <View>
-            <View style={styles.titleRow}>
-              <Text style={[styles.headerTitle, { color: theme.textMain }]}>Admin Center</Text>
-              <View style={styles.adminBadge}>
-                <Ionicons name="shield-checkmark" size={12} color="#FFFFFF" />
-                <Text style={styles.adminBadgeText}>RBAC</Text>
-              </View>
-            </View>
-            <Text style={[styles.headerSubtitle, { color: theme.textMuted }]}>
-              {currentUser?.name || 'Administrateur'} · Tfarhida
-            </Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={[styles.refreshIconButton, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
-          onPress={onPullRefresh}
-        >
-          <Ionicons name="refresh" size={18} color={theme.primary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Segmented Tab Bar */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.tabBar, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-        <TouchableOpacity
-          style={[
-            styles.tabItem,
-            activeTab === 'kpi' && { backgroundColor: theme.primary },
-          ]}
-          onPress={() => setActiveTab('kpi')}
-        >
-          <Ionicons
-            name="bar-chart-outline"
-            size={16}
-            color={activeTab === 'kpi' ? '#FFFFFF' : theme.textMuted}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === 'kpi' ? '#FFFFFF' : theme.textMuted },
-            ]}
-          >
-            Vue d'ensemble
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.tabItem,
-            activeTab === 'activities' && { backgroundColor: theme.primary },
-          ]}
-          onPress={() => setActiveTab('activities')}
-        >
-          <Ionicons
-            name="checkmark-done-circle-outline"
-            size={16}
-            color={activeTab === 'activities' ? '#FFFFFF' : theme.textMuted}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === 'activities' ? '#FFFFFF' : theme.textMuted },
-            ]}
-          >
-            Modération
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.tabItem, activeTab === 'reviews' && { backgroundColor: theme.primary }]}
-          onPress={() => setActiveTab('reviews')}
-          accessibilityRole="button"
-          accessibilityLabel={t('adminReviews')}
-        >
-          <Ionicons name="chatbubbles-outline" size={16} color={activeTab === 'reviews' ? '#FFFFFF' : theme.textMuted} />
-          <Text style={[styles.tabText, { color: activeTab === 'reviews' ? '#FFFFFF' : theme.textMuted }]}>{t('adminReviews')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.tabItem,
-            activeTab === 'users' && { backgroundColor: theme.primary },
-          ]}
-          onPress={() => setActiveTab('users')}
-        >
-          <Ionicons
-            name="people-outline"
-            size={16}
-            color={activeTab === 'users' ? '#FFFFFF' : theme.textMuted}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === 'users' ? '#FFFFFF' : theme.textMuted },
-            ]}
-          >
-            Utilisateurs
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.tabItem,
-            activeTab === 'diagnostics' && { backgroundColor: theme.primary },
-          ]}
-          onPress={() => setActiveTab('diagnostics')}
-        >
-          <Ionicons
-            name="pulse-outline"
-            size={16}
-            color={activeTab === 'diagnostics' ? '#FFFFFF' : theme.textMuted}
-          />
-          <Text
-            style={[
-              styles.tabText,
-              { color: activeTab === 'diagnostics' ? '#FFFFFF' : theme.textMuted },
-            ]}
-          >
-            Diagnostics
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+      <AdminDashboardHeader
+        administratorName={currentUser?.name || ''}
+        theme={theme}
+        isRTL={language === 'ar'}
+        title={t('adminDashboardTitle')}
+        administratorLabel={t('adminAdministrator')}
+        backLabel={t('adminGoBack')}
+        refreshLabel={t('adminRefreshSection')}
+        onBack={onBack}
+        onRefresh={onPullRefresh}
+      />
+      <AdminDashboardTabs
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        theme={theme}
+        isRTL={language === 'ar'}
+        labels={{
+          kpi: t('adminTabOverview'),
+          activities: t('adminTabActivityModeration'),
+          reviews: t('adminTabReviews'),
+          partners: t('adminTabPartners'),
+          users: t('adminTabUsers'),
+          diagnostics: t('adminTabDiagnostics'),
+        }}
+      />
 
       {/* Main Body */}
-      {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={theme.primary} />
-          <Text style={[styles.loadingText, { color: theme.textMuted }]}>
-            Chargement des données administrateur...
-          </Text>
-        </View>
-      ) : errorMessage ? (
-        <View style={styles.centerContainer}>
-          <Ionicons name="alert-circle-outline" size={48} color="#EF4444" />
-          <Text style={[styles.errorTitle, { color: theme.textMain }]}>Erreur</Text>
-          <Text style={[styles.errorMessage, { color: theme.textMuted }]}>{errorMessage}</Text>
-          <TouchableOpacity
-            style={[styles.retryBtn, { backgroundColor: theme.primary }]}
-            onPress={refreshCurrentTab}
-          >
-            <Text style={styles.retryBtnText}>Réessayer</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <ScrollView
+      <ScrollView
           contentContainerStyle={styles.scrollContent}
           refreshControl={
             <RefreshControl
-              refreshing={refreshing}
+              refreshing={
+                activeTab === 'activities'
+                  ? activityAdmin.refreshing
+                  : activeTab === 'users'
+                  ? userAdmin.refreshing
+                  : activeTab === 'partners' || activeTab === 'diagnostics'
+                  ? diagnosticsAdmin.refreshing
+                  : false
+              }
               onRefresh={onPullRefresh}
               colors={[theme.primary]}
               tintColor={theme.primary}
@@ -485,86 +359,131 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
           }
         >
           {activeTab === 'reviews' && <ReviewModerationTab />}
+          {activeTab !== 'reviews' && (() => {
+            const loading =
+              activeTab === 'kpi'
+                ? statsLoading
+                : activeTab === 'activities'
+                ? activityAdmin.loading
+                : activeTab === 'users'
+                ? userAdmin.loading
+                : activeTab === 'partners' || activeTab === 'diagnostics'
+                ? diagnosticsAdmin.loading
+                : false;
+            const error =
+              activeTab === 'kpi'
+                ? statsError
+                : activeTab === 'activities'
+                ? activityAdmin.error
+                : activeTab === 'users'
+                ? userAdmin.error
+                : activeTab === 'partners' || activeTab === 'diagnostics'
+                ? diagnosticsAdmin.error
+                : null;
+            if (loading || error) return (
+              <View style={[styles.centerContainer, { minHeight: 180 }]}>
+                {loading ? (
+                  <View accessible accessibilityRole="progressbar" accessibilityLabel={t('adminSectionLoading')}>
+                    <ActivityIndicator size="large" color={theme.primary} />
+                  </View>
+                ) : <Ionicons name="alert-circle-outline" size={40} color={theme.primary} />}
+                <Text accessibilityRole={error ? 'alert' : undefined} style={[styles.errorMessage, { color: theme.textMuted }]}>
+                  {loading ? t('adminSectionLoading') : t('adminSectionLoadError')}
+                </Text>
+                {error && (
+                  <TouchableOpacity
+                    style={[styles.retryBtn, { backgroundColor: theme.primary }]}
+                    onPress={refreshCurrentTab}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('adminRetry')}
+                  >
+                    <Text style={[styles.retryBtnText, { color: theme.cardBg }]}>{t('adminRetry')}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            );
+            return null;
+          })()}
           {/* TAB 1 : VUE D'ENSEMBLE (KPI & STATS) */}
-          {activeTab === 'kpi' && stats && (
+          {activeTab === 'kpi' && !statsLoading && !statsError && stats && (
             <View style={styles.tabContent}>
               <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
-                Indicateurs Clés de Performance
+                {t('adminKpiTitle')}
               </Text>
 
-              {/* Grid des Cartes KPI */}
+              {/* Grid des Cartes KPI avec palettes sémantiques distinctes */}
               <View style={styles.kpiGrid}>
-                {/* Utilisateurs totaux */}
+                {/* Utilisateurs totaux - Indigo / Bleu Royal */}
                 <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#EFF6FF' }]}>
-                    <Ionicons name="people" size={22} color="#3B82F6" />
+                  <View style={[styles.kpiIconBox, { backgroundColor: isDark ? 'rgba(99, 102, 241, 0.22)' : '#EEF2FF' }]}>
+                    <Ionicons name="people" size={22} color={isDark ? '#A5B4FC' : '#4F46E5'} />
                   </View>
                   <Text style={[styles.kpiValue, { color: theme.textMain }]}>
                     {stats.users.total}
                   </Text>
                   <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>
-                    Utilisateurs Inscrits
+                    {t('adminKpiUsers')}
                   </Text>
                   <View style={styles.kpiSubRow}>
-                    <Text style={[styles.kpiSubText, { color: '#10B981' }]}>
-                      {stats.users.regularUsers} standard
+                    <Text style={[styles.kpiSubText, { color: theme.textMuted }]}>
+                      {stats.users.regularUsers} {t('adminKpiStandardUsers')}
                     </Text>
-                    <Text style={[styles.kpiSubText, { color: '#8B5CF6' }]}>
-                      · {stats.users.partners} partenaires
+                    <Text style={[styles.kpiSubText, { color: isDark ? '#38BDF8' : '#0284C7', fontWeight: '700' }]}>
+                      · {stats.users.partners} {t('adminKpiPartners')}
                     </Text>
                   </View>
                 </View>
 
-                {/* Activités */}
+                {/* Activités - Cyan / Émeraude Méditerranée */}
                 <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#F0FDF4' }]}>
-                    <Ionicons name="compass" size={22} color="#10B981" />
+                  <View style={[styles.kpiIconBox, { backgroundColor: isDark ? 'rgba(2, 132, 199, 0.22)' : '#E0F2FE' }]}>
+                    <Ionicons name="compass" size={22} color={isDark ? '#38BDF8' : '#0284C7'} />
                   </View>
                   <Text style={[styles.kpiValue, { color: theme.textMain }]}>
                     {stats.activities.total}
                   </Text>
                   <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>
-                    Activités Publiées
+                    {t('adminKpiActivities')}
                   </Text>
                   <View style={styles.kpiSubRow}>
-                    <Text style={[styles.kpiSubText, { color: stats.activities.pendingApproval > 0 ? '#F59E0B' : '#10B981' }]}>
-                      {stats.activities.pendingApproval} en attente
+                    <Text style={[styles.kpiSubText, { color: isDark ? '#FBBF24' : '#D97706', fontWeight: '700' }]}>
+                      {stats.activities.pendingApproval} {t('adminKpiPendingApproval')}
                     </Text>
                   </View>
                 </View>
 
-                {/* Partenaires */}
+                {/* Partenaires Pro & Premium - Or & Ambre */}
                 <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#FAF5FF' }]}>
-                    <Ionicons name="briefcase" size={22} color="#8B5CF6" />
+                  <View style={[styles.kpiIconBox, { backgroundColor: isDark ? 'rgba(245, 158, 11, 0.22)' : '#FEF3C7' }]}>
+                    <Ionicons name="briefcase" size={22} color={isDark ? '#FBBF24' : '#D97706'} />
                   </View>
                   <Text style={[styles.kpiValue, { color: theme.textMain }]}>
                     {stats.users.partners}
                   </Text>
                   <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>
-                    Partenaires Pros
+                    {t('adminKpiProPartners')}
                   </Text>
                   <View style={styles.kpiSubRow}>
-                    <Text style={[styles.kpiSubText, { color: '#3B82F6' }]}>
-                      {stats.users.admins} admin(s)
+                    <Text style={[styles.kpiSubText, { color: isDark ? '#C084FC' : '#7C3AED', fontWeight: '700' }]}>
+                      {stats.users.admins} {t('adminKpiAdmins')}
                     </Text>
                   </View>
                 </View>
 
-                {/* Avis */}
+                {/* Avis & Notes - Rose Corail / Étoile */}
                 <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-                  <View style={[styles.kpiIconBox, { backgroundColor: '#FFFBEB' }]}>
-                    <Ionicons name="star" size={22} color="#F59E0B" />
+                  <View style={[styles.kpiIconBox, { backgroundColor: isDark ? 'rgba(251, 113, 133, 0.22)' : '#FFE4E6' }]}>
+                    <Ionicons name="star" size={22} color={isDark ? '#FB7185' : '#E11D48'} />
                   </View>
                   <Text style={[styles.kpiValue, { color: theme.textMain }]}>
                     {stats.reviews.total}
                   </Text>
                   <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>
-                    Avis & Notations
+                    {t('adminKpiReviews')}
                   </Text>
                   <View style={styles.kpiSubRow}>
-                    <Text style={[styles.kpiSubText, { color: '#10B981' }]}>
-                      Vérifiés
+                    <Text style={[styles.kpiSubText, { color: isDark ? '#34D399' : '#059669', fontWeight: '700' }]}>
+                      {t('adminKpiVerified')}
                     </Text>
                   </View>
                 </View>
@@ -575,7 +494,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                 <View style={styles.cardSectionHeader}>
                   <Ionicons name="map-outline" size={18} color={theme.primary} />
                   <Text style={[styles.cardSectionTitle, { color: theme.textMain }]}>
-                    Répartition des Activités par Ville
+                    {t('adminKpiActivitiesByCity')}
                   </Text>
                 </View>
                 <View style={styles.cityList}>
@@ -585,14 +504,14 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                         <Text style={[styles.cityRank, { color: theme.textMuted }]}>#{index + 1}</Text>
                         <Text style={[styles.cityName, { color: theme.textMain }]}>{item.city}</Text>
                       </View>
-                      <View style={styles.cityCountBadge}>
-                        <Text style={styles.cityCountText}>{item.count} activités</Text>
+                      <View style={[styles.cityCountBadge, { backgroundColor: theme.pillBg }]}>
+                        <Text style={[styles.cityCountText, { color: theme.primary }]}>{item.count} {t('adminKpiActivityCount')}</Text>
                       </View>
                     </View>
                   ))}
                   {stats.activities.byCity.length === 0 && (
                     <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                      Aucune donnée de localisation disponible.
+                      {t('adminKpiNoLocation')}
                     </Text>
                   )}
                 </View>
@@ -601,10 +520,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
           )}
 
           {/* TAB 2 : MODÉRATION DES ACTIVITÉS */}
-          {activeTab === 'activities' && (
+          {activeTab === 'activities' && !activityAdmin.loading && !activityAdmin.error && (
             <View style={styles.tabContent}>
               {/* Filtres de statut */}
-              <View style={styles.filterPillsRow}>
+              <View style={[styles.filterPillsRow, { flexDirection: language === 'ar' ? 'row-reverse' : 'row' }]}>
                 {(['all', 'pending', 'approved'] as const).map((filter) => (
                   <TouchableOpacity
                     key={filter}
@@ -615,6 +534,9 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                         : { backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 },
                     ]}
                     onPress={() => setActivityStatusFilter(filter)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: activityStatusFilter === filter }}
+                    accessibilityLabel={filter === 'all' ? t('adminActivityFilterAll') : filter === 'pending' ? t('adminActivityFilterPending') : t('adminActivityFilterApproved')}
                   >
                     <Text
                       style={[
@@ -623,161 +545,49 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                       ]}
                     >
                       {filter === 'all'
-                        ? 'Toutes'
+                        ? t('adminActivityFilterAll')
                         : filter === 'pending'
-                        ? 'En attente'
-                        : 'Approuvées'}
+                        ? t('adminActivityFilterPending')
+                        : t('adminActivityFilterApproved')}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
               <Text style={[styles.resultsCount, { color: theme.textMuted }]}>
-                {activities.length} activité(s) trouvée(s)
+                {activities.length} {t('adminActivityResults')}
               </Text>
 
               {activities.length === 0 ? (
                 <View style={styles.emptyStateContainer}>
                   <Ionicons name="folder-open-outline" size={42} color={theme.textMuted} />
                   <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                    Aucune activité correspondant à ce filtre.
+                    {t('adminActivityEmpty')}
                   </Text>
                 </View>
               ) : (
                 <View style={styles.activitiesList}>
                   {activities.map((item) => (
-                    <View
+                    <ActivityModerationCard
                       key={item._id}
-                      style={[styles.activityAdminCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}
-                    >
-                      <View style={styles.activityCardTop}>
-                        {item.image ? (
-                          <Image source={{ uri: item.image }} style={styles.activityThumbnail as any} />
-                        ) : (
-                          <View style={[styles.activityThumbnailPlaceholder, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]}>
-                            <Ionicons name="image-outline" size={24} color={theme.textMuted} />
-                          </View>
-                        )}
-                        <View style={styles.activityInfo}>
-                          <View style={styles.activityTitleRow}>
-                            <Text style={[styles.activityName, { color: theme.textMain }]} numberOfLines={1}>
-                              {item.name}
-                            </Text>
-                            <View
-                              style={[
-                                styles.approvalBadge,
-                                { backgroundColor: item.isApproved ? '#DCFCE7' : '#FEF3C7' },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.approvalBadgeText,
-                                  { color: item.isApproved ? '#15803D' : '#B45309' },
-                                ]}
-                              >
-                                {item.isApproved ? 'Approuvée' : 'En attente'}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <Text style={[styles.activitySubText, { color: theme.textMuted }]}>
-                            {item.city} · {item.category} · {item.price} DT
-                          </Text>
-
-                          {item.createdBy && (
-                            <Text style={[styles.activityCreator, { color: theme.primary }]}>
-                              Par : {item.createdBy.name} {item.createdBy.establishmentName ? `(${item.createdBy.establishmentName})` : ''}
-                            </Text>
-                          )}
-                        </View>
-                      </View>
-
-                      {/* Barre d'actions d'administration */}
-                      <View style={[styles.activityActionRow, { borderTopColor: theme.cardBorder }]}>
-                        {/* Toggle Approbation */}
-                        <TouchableOpacity
-                          style={[
-                            styles.actionBtn,
-                            item.isApproved
-                              ? { backgroundColor: '#FEE2E2' }
-                              : { backgroundColor: '#DCFCE7' },
-                          ]}
-                          onPress={() => handleToggleApproval(item)}
-                        >
-                          <Ionicons
-                            name={item.isApproved ? 'close-circle-outline' : 'checkmark-circle-outline'}
-                            size={16}
-                            color={item.isApproved ? '#DC2626' : '#15803D'}
-                          />
-                          <Text
-                            style={[
-                              styles.actionBtnText,
-                              { color: item.isApproved ? '#DC2626' : '#15803D' },
-                            ]}
-                          >
-                            {item.isApproved ? 'Suspendre' : 'Valider'}
-                          </Text>
-                        </TouchableOpacity>
-
-                        {/* Toggle Featured */}
-                        <TouchableOpacity
-                          style={[
-                            styles.actionBtn,
-                            item.isFeatured
-                              ? { backgroundColor: '#FEF3C7' }
-                              : { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' },
-                          ]}
-                          onPress={() => handleToggleHighlight(item, 'isFeatured')}
-                        >
-                          <Ionicons
-                            name={item.isFeatured ? 'star' : 'star-outline'}
-                            size={15}
-                            color={item.isFeatured ? '#D97706' : theme.textMuted}
-                          />
-                          <Text
-                            style={[
-                              styles.actionBtnText,
-                              { color: item.isFeatured ? '#D97706' : theme.textMuted },
-                            ]}
-                          >
-                            Featured
-                          </Text>
-                        </TouchableOpacity>
-
-                        {/* Toggle Popular */}
-                        <TouchableOpacity
-                          style={[
-                            styles.actionBtn,
-                            item.isPopular
-                              ? { backgroundColor: '#FFE4E6' }
-                              : { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' },
-                          ]}
-                          onPress={() => handleToggleHighlight(item, 'isPopular')}
-                        >
-                          <Ionicons
-                            name={item.isPopular ? 'flame' : 'flame-outline'}
-                            size={15}
-                            color={item.isPopular ? '#E11D48' : theme.textMuted}
-                          />
-                          <Text
-                            style={[
-                              styles.actionBtnText,
-                              { color: item.isPopular ? '#E11D48' : theme.textMuted },
-                            ]}
-                          >
-                            Populaire
-                          </Text>
-                        </TouchableOpacity>
-
-                        {/* Supprimer */}
-                        <TouchableOpacity
-                          style={[styles.deleteIconButton, { backgroundColor: '#FEF2F2' }]}
-                          onPress={() => handleDeleteActivity(item)}
-                        >
-                          <Ionicons name="trash-outline" size={16} color="#DC2626" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                      activity={item}
+                      theme={theme}
+                      isRTL={language === 'ar'}
+                      labels={{
+                        approved: t('adminActivityApproved'),
+                        pending: t('adminActivityPending'),
+                        suspend: t('adminActivitySuspend'),
+                        validate: t('adminActivityValidate'),
+                        featured: t('adminActivityFeatured'),
+                        popular: t('adminActivityPopular'),
+                        delete: t('adminActivityDelete'),
+                        createdBy: t('adminActivityCreatedBy'),
+                      }}
+                      onToggleApproval={handleToggleApproval}
+                      onToggleFeatured={(activity) => handleToggleHighlight(activity, 'isFeatured')}
+                      onTogglePopular={(activity) => handleToggleHighlight(activity, 'isPopular')}
+                      onDelete={handleDeleteActivity}
+                    />
                   ))}
                 </View>
               )}
@@ -785,49 +595,57 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
           )}
 
           {/* TAB 3 : GESTION DES UTILISATEURS */}
-          {activeTab === 'users' && (
+          {activeTab === 'users' && !userAdmin.loading && !userAdmin.error && (
             <View style={styles.tabContent}>
               {/* Barre de recherche */}
               <View style={[styles.searchBox, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
                 <Ionicons name="search" size={18} color={theme.textMuted} />
                 <TextInput
                   style={[styles.searchInput, { color: theme.textMain }]}
-                  placeholder="Rechercher par nom, email..."
+                  placeholder={t('adminUsersSearch')}
                   placeholderTextColor={theme.textMuted}
+                  accessibilityLabel={t('adminUsersSearch')}
                   value={userSearch}
                   onChangeText={setUserSearch}
                   onSubmitEditing={loadUsers}
                   returnKeyType="search"
                 />
                 {userSearch.length > 0 && (
-                  <TouchableOpacity onPress={() => { setUserSearch(''); loadUsers(); }}>
+                  <TouchableOpacity
+                    onPress={() => { setUserSearch(''); loadUsers(); }}
+                    style={styles.clearSearchButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('adminClearSearch')}
+                  >
                     <Ionicons name="close-circle" size={18} color={theme.textMuted} />
                   </TouchableOpacity>
                 )}
               </View>
 
-              {/* Filtre par rôle */}
-              <View style={styles.filterPillsRow}>
+              {/* Filtre par rôle (Membres & Admins uniquement, Partenaires ayant leur onglet dédié) */}
+              <View style={[styles.filterPillsRow, { flexDirection: language === 'ar' ? 'row-reverse' : 'row' }]}>
                 {[
-                  { key: 'all', label: 'Tous' },
-                  { key: 'user', label: 'Standard' },
-                  { key: 'partner', label: 'Partenaire' },
-                  { key: 'admin', label: 'Admin' },
+                  { key: 'all', label: t('adminUserFilterAll') },
+                  { key: 'user', label: t('adminUserFilterStandard') },
+                  { key: 'admin', label: t('adminUserFilterAdmin') },
                 ].map((item) => (
                   <TouchableOpacity
                     key={item.key}
                     style={[
                       styles.filterPill,
                       userRoleFilter === item.key
-                        ? { backgroundColor: theme.primary }
+                        ? { backgroundColor: theme.primary, borderColor: theme.primary }
                         : { backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 },
                     ]}
                     onPress={() => setUserRoleFilter(item.key)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: userRoleFilter === item.key }}
+                    accessibilityLabel={item.label}
                   >
                     <Text
                       style={[
                         styles.filterPillText,
-                        { color: userRoleFilter === item.key ? '#FFFFFF' : theme.textMuted },
+                        { color: userRoleFilter === item.key ? theme.cardBg : theme.textMuted },
                       ]}
                     >
                       {item.label}
@@ -837,31 +655,34 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
               </View>
 
               <Text style={[styles.resultsCount, { color: theme.textMuted }]}>
-                {users.length} compte(s) trouvé(s)
+                {regularUsers.length} {t('adminUsersResults')}
               </Text>
 
-              {users.length === 0 ? (
+              {regularUsers.length === 0 ? (
                 <View style={styles.emptyStateContainer}>
                   <Ionicons name="people-outline" size={42} color={theme.textMuted} />
                   <Text style={[styles.emptyText, { color: theme.textMuted }]}>
-                    Aucun utilisateur trouvé avec ces critères.
+                    {t('adminUsersEmpty')}
                   </Text>
                 </View>
               ) : (
                 <View style={styles.usersList}>
-                  {users.map((user) => {
+                  {regularUsers.map((user) => {
                     const isSelf = user._id === currentUser?.id;
+                    const roleCfg = getUserRoleBadge(user.role, isDark);
+                    const statusCfg = getStatusBadge(user.isActive ? 'active' : 'suspended', isDark);
+
                     return (
                       <View
                         key={user._id}
                         style={[styles.userAdminCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}
                       >
-                        <View style={styles.userCardMain}>
-                          <View style={styles.userAvatarBox}>
+                        <View style={[styles.userCardMain, { flexDirection: language === 'ar' ? 'row-reverse' : 'row' }]}>
+                          <View style={[styles.userAvatarBox, { backgroundColor: roleCfg.backgroundColor }]}>
                             <Ionicons
-                              name={user.role === 'admin' ? 'shield' : user.role === 'partner' ? 'briefcase' : 'person'}
+                              name={roleCfg.icon}
                               size={20}
-                              color={user.role === 'admin' ? '#DC2626' : user.role === 'partner' ? '#7C3AED' : '#2563EB'}
+                              color={roleCfg.color}
                             />
                           </View>
                           <View style={styles.userInfoCol}>
@@ -870,128 +691,59 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                                 {user.name}
                               </Text>
                               {isSelf && (
-                                <View style={styles.selfBadge}>
-                                  <Text style={styles.selfBadgeText}>Vous</Text>
+                                <View style={[styles.selfBadge, { borderColor: theme.cardBorder }]}>
+                                  <Text style={[styles.selfBadgeText, { color: theme.textMuted }]}>{t('adminCurrentUser')}</Text>
                                 </View>
                               )}
                             </View>
                             <Text style={[styles.userEmail, { color: theme.textMuted }]} numberOfLines={1}>
                               {user.email}
                             </Text>
-                            {user.establishmentName && (
-                              <Text style={[styles.userEstablishment, { color: theme.primary }]}>
-                                🏢 {user.establishmentName}
-                              </Text>
-                            )}
                           </View>
 
-                          {/* Role Badge button */}
+                          {/* Role Badge button avec couleur & icône vectorielle distinctes */}
                           <TouchableOpacity
                             style={[
                               styles.roleBadgeBtn,
-                              user.role === 'admin'
-                                ? { backgroundColor: '#FEE2E2' }
-                                : user.role === 'partner'
-                                ? { backgroundColor: '#EDE9FE' }
-                                : { backgroundColor: '#EFF6FF' },
+                              {
+                                backgroundColor: roleCfg.backgroundColor,
+                                borderColor: roleCfg.borderColor,
+                                borderWidth: 1,
+                              },
                             ]}
                             disabled={isSelf}
                             onPress={() => {
                               setSelectedUserForRole(user);
                               setRoleModalVisible(true);
                             }}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('adminChangeRole')}: ${user.name}, ${user.role === 'admin' ? t('adminRoleAdministrator') : t('adminRoleUser')}`}
+                            accessibilityState={{ disabled: isSelf }}
                           >
+                            <Ionicons name={roleCfg.icon} size={13} color={roleCfg.color} style={{ marginRight: language === 'ar' ? 0 : 4, marginLeft: language === 'ar' ? 4 : 0 }} />
                             <Text
                               style={[
                                 styles.roleBadgeText,
-                                user.role === 'admin'
-                                  ? { color: '#B91C1C' }
-                                  : user.role === 'partner'
-                                  ? { color: '#6D28D9' }
-                                  : { color: '#1D4ED8' },
+                                { color: roleCfg.color },
                               ]}
                             >
-                              {user.role.toUpperCase()}
+                              {user.role === 'admin' ? t('adminRoleAdministrator') : t('adminRoleUser')}
                             </Text>
-                            {!isSelf && <Ionicons name="pencil" size={10} color="#64748B" style={{ marginLeft: 4 }} />}
+                            {!isSelf && <Ionicons name="pencil" size={12} color={roleCfg.color} style={{ marginLeft: 4 }} />}
                           </TouchableOpacity>
-
-                          {/* Palier Partenaire (Standard / Pro / Premium) */}
-                          {user.role === 'partner' && (
-                            <TouchableOpacity
-                              style={[
-                                styles.roleBadgeBtn,
-                                {
-                                  marginLeft: 6,
-                                  backgroundColor:
-                                    user.partnerTier === 'premium'
-                                      ? '#F3E8FF'
-                                      : user.partnerTier === 'pro'
-                                      ? '#FFEDD5'
-                                      : '#F1F5F9',
-                                  borderColor:
-                                    user.partnerTier === 'premium'
-                                      ? '#A855F7'
-                                      : user.partnerTier === 'pro'
-                                      ? '#F97316'
-                                      : '#94A3B8',
-                                  borderWidth: 1,
-                                },
-                              ]}
-                              onPress={() => {
-                                setSelectedPartnerForTier(user);
-                                setPartnerTierModalVisible(true);
-                              }}
-                              accessibilityRole="button"
-                              accessibilityLabel="Modifier le palier partenaire"
-                            >
-                              <Text
-                                style={[
-                                  styles.roleBadgeText,
-                                  {
-                                    color:
-                                      user.partnerTier === 'premium'
-                                        ? '#9333EA'
-                                        : user.partnerTier === 'pro'
-                                        ? '#EA580C'
-                                        : '#475569',
-                                    fontWeight: '800',
-                                  },
-                                ]}
-                              >
-                                {user.partnerTier === 'premium'
-                                  ? '👑 PREMIUM'
-                                  : user.partnerTier === 'pro'
-                                  ? '⭐ PRO'
-                                  : 'STANDARD'}
-                              </Text>
-                              <Ionicons
-                                name="create-outline"
-                                size={11}
-                                color={
-                                  user.partnerTier === 'premium'
-                                    ? '#9333EA'
-                                    : user.partnerTier === 'pro'
-                                    ? '#EA580C'
-                                    : '#64748B'
-                                }
-                                style={{ marginLeft: 3 }}
-                              />
-                            </TouchableOpacity>
-                          )}
                         </View>
 
-                        {/* Status Switch bar */}
-                        <View style={[styles.userStatusBar, { borderTopColor: theme.cardBorder }]}>
-                          <View style={styles.statusLabelRow}>
+                        {/* Status Switch bar (Vert Émeraude = Actif, Rouge = Suspendu) */}
+                        <View style={[styles.userStatusBar, { borderTopColor: theme.cardBorder, flexDirection: language === 'ar' ? 'row-reverse' : 'row' }]}>
+                          <View style={[styles.statusLabelRow, { flexDirection: language === 'ar' ? 'row-reverse' : 'row' }]}>
                             <View
                               style={[
                                 styles.statusDot,
-                                { backgroundColor: user.isActive ? '#10B981' : '#EF4444' },
+                                { backgroundColor: statusCfg.color },
                               ]}
                             />
-                            <Text style={[styles.statusText, { color: user.isActive ? '#10B981' : '#EF4444' }]}>
-                              {user.isActive ? 'Compte Actif' : 'Compte Suspendu'}
+                            <Text style={[styles.statusText, { color: statusCfg.color }]}>
+                              {user.isActive ? t('adminAccountActive') : t('adminAccountSuspended')}
                             </Text>
                           </View>
 
@@ -1000,8 +752,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
                               value={user.isActive}
                               disabled={isSelf}
                               onValueChange={() => handleToggleUserStatus(user)}
-                              trackColor={{ false: '#CBD5E1', true: '#10B981' }}
-                              thumbColor="#FFFFFF"
+                              accessibilityLabel={`${user.name}: ${user.isActive ? t('adminAccountActive') : t('adminAccountSuspended')}`}
+                              accessibilityHint={t('adminToggleAccountStatusHint')}
+                              trackColor={{ false: isDark ? 'rgba(239, 68, 68, 0.3)' : '#FCA5A5', true: isDark ? 'rgba(16, 185, 129, 0.4)' : '#86EFAC' }}
+                              thumbColor={user.isActive ? '#10B981' : theme.cardBg}
                             />
                           </View>
                         </View>
@@ -1013,76 +767,98 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
             </View>
           )}
 
-          {/* TAB 4 : DIAGNOSTICS, TÉLÉMÉTRIE & STATUT PARTENAIRES */}
-          {activeTab === 'diagnostics' && (
+          {/* TAB 4 : ESPACE PARTENAIRES & ÉTABLISSEMENTS */}
+          {activeTab === 'partners' && !diagnosticsAdmin.loading && !diagnosticsAdmin.error && (
+            <AdminPartnersTab
+              partnersStatus={effectivePartnersStatus}
+              theme={theme}
+              onOpenTierModal={handleTogglePartnerTier}
+            />
+          )}
+
+          {/* TAB 5 : DIAGNOSTICS & SANTÉ SYSTÈME */}
+          {activeTab === 'diagnostics' && !diagnosticsAdmin.loading && !diagnosticsAdmin.error && (
             <AdminDiagnosticsTab
               diagnosticsData={diagnosticsData}
               theme={theme}
-              isDark={isDark}
-              onTogglePartnerTier={handleTogglePartnerTier}
               onToggleGlobalElectricity={handleToggleGlobalElectricity}
             />
           )}
         </ScrollView>
-      )}
-
-      {/* MODAL CHANGEMENT DE RÔLE */}
-      <Modal
+      {/* MODAL CHANGEMENT DE RÔLE (SCROLLABLE BOTTOMSHEET) */}
+      <ScrollableModal
         visible={roleModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setRoleModalVisible(false)}
+        onClose={() => setRoleModalVisible(false)}
+        title={t('adminRoleModalTitle')}
+        subtitle={`${t('adminRoleModalPrompt')} ${selectedUserForRole?.name || ''}`}
+        height="64%"
       >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-            <Text style={[styles.modalTitle, { color: theme.textMain }]}>
-              Changer le rôle
-            </Text>
-            <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
-              Sélectionnez le nouveau niveau d'accès pour {selectedUserForRole?.name} :
-            </Text>
+        <View style={styles.roleModalContent}>
+          <View style={styles.roleOptionsList}>
+            {(['user', 'partner', 'admin'] as const).map((r) => {
+              const rCfg = getUserRoleBadge(r, isDark);
+              const isSelected = selectedUserForRole?.role === r;
 
-            <View style={styles.roleOptionsList}>
-              {(['user', 'partner', 'admin'] as const).map((r) => (
+              return (
                 <TouchableOpacity
                   key={r}
                   style={[
                     styles.roleOptionItem,
-                    selectedUserForRole?.role === r && { borderColor: theme.primary, borderWidth: 2 },
-                    { backgroundColor: isDark ? '#1E293B' : '#F8FAFC' },
+                    {
+                      backgroundColor: isSelected ? rCfg.backgroundColor : isDark ? 'rgba(255,255,255,0.04)' : '#F8FAFC',
+                      borderColor: isSelected ? rCfg.borderColor : theme.cardBorder,
+                      borderWidth: isSelected ? 2 : 1,
+                    },
                   ]}
                   onPress={() => handleConfirmRoleChange(r)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isSelected }}
                 >
-                  <Ionicons
-                    name={r === 'admin' ? 'shield-checkmark' : r === 'partner' ? 'briefcase' : 'person'}
-                    size={20}
-                    color={theme.primary}
-                  />
+                  <View
+                    style={[
+                      styles.roleOptionIconCircle,
+                      { backgroundColor: rCfg.backgroundColor, borderColor: rCfg.borderColor, borderWidth: 1 },
+                    ]}
+                  >
+                    <Ionicons
+                      name={rCfg.icon}
+                      size={20}
+                      color={rCfg.color}
+                    />
+                  </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.roleOptionTitle, { color: theme.textMain }]}>
-                      {r === 'admin' ? 'Administrateur (admin)' : r === 'partner' ? 'Partenaire Pro (partner)' : 'Utilisateur Simple (user)'}
-                    </Text>
+                    <View style={{ flexDirection: language === 'ar' ? 'row-reverse' : 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={[styles.roleOptionTitle, { color: theme.textMain }]}>
+                        {r === 'admin' ? t('adminRoleAdministrator') : r === 'partner' ? t('adminRolePartner') : t('adminRoleUser')}
+                      </Text>
+                      {rCfg.tag && (
+                        <View style={[styles.badgeTag, { backgroundColor: rCfg.backgroundColor, borderColor: rCfg.borderColor }]}>
+                          <Text style={[styles.badgeTagText, { color: rCfg.color }]}>{rCfg.tag}</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text style={[styles.roleOptionDesc, { color: theme.textMuted }]}>
                       {r === 'admin'
-                        ? 'Accès total à la modération et aux KPI'
+                        ? t('adminRoleAdministratorDescription')
                         : r === 'partner'
-                        ? 'Peut publier et gérer ses activités'
-                        : 'Accès consultation et avis standard'}
+                        ? t('adminRolePartnerDescription')
+                        : t('adminRoleUserDescription')}
                     </Text>
                   </View>
+                  {isSelected && <Ionicons name="checkmark-circle" size={20} color={rCfg.color} />}
                 </TouchableOpacity>
-              ))}
-            </View>
-
-            <TouchableOpacity
-              style={[styles.modalCancelBtn, { borderColor: theme.cardBorder }]}
-              onPress={() => setRoleModalVisible(false)}
-            >
-              <Text style={[styles.modalCancelBtnText, { color: theme.textMain }]}>Annuler</Text>
-            </TouchableOpacity>
+              );
+            })}
           </View>
+
+          <TouchableOpacity
+            style={[styles.modalCancelBtn, { borderColor: theme.cardBorder }]}
+            onPress={() => setRoleModalVisible(false)}
+          >
+            <Text style={[styles.modalCancelBtnText, { color: theme.textMain }]}>{t('cancel')}</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+      </ScrollableModal>
 
       {/* MODAL PALIER PARTENAIRE DÉVELOPPÉ (STANDARD / PRO / PREMIUM) */}
       <PartnerTierModal
@@ -1101,84 +877,6 @@ export const AdminDashboardScreen: React.FC<AdminDashboardScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  adminBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  adminBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  refreshIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabBar: {
-    flexDirection: 'row',
-    padding: 6,
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 6,
-  },
-  tabItem: {
-    minWidth: 110,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    borderRadius: 10,
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -1284,13 +982,16 @@ const styles = StyleSheet.create({
   },
   filterPillsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginBottom: 12,
   },
   filterPill: {
+    minHeight: 44,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
+    justifyContent: 'center',
   },
   filterPillText: {
     fontSize: 12,
@@ -1304,105 +1005,28 @@ const styles = StyleSheet.create({
   activitiesList: {
     gap: 12,
   },
-  activityAdminCard: {
-    borderWidth: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  activityCardTop: {
-    flexDirection: 'row',
-    padding: 12,
-    gap: 12,
-  },
-  activityThumbnail: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-  },
-  activityThumbnailPlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activityInfo: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  activityTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 6,
-  },
-  activityName: {
-    fontSize: 14,
-    fontWeight: '800',
-    flex: 1,
-  },
-  approvalBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-  },
-  approvalBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  activitySubText: {
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  activityCreator: {
-    fontSize: 11,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  activityActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    gap: 8,
-  },
-  actionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  actionBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  deleteIconButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 'auto',
-  },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 12,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    minHeight: 48,
+    paddingVertical: 4,
     gap: 8,
     marginBottom: 10,
   },
   searchInput: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '600',
     padding: 0,
+  },
+  clearSearchButton: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   usersList: {
     gap: 10,
@@ -1414,6 +1038,7 @@ const styles = StyleSheet.create({
   },
   userCardMain: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     padding: 12,
     gap: 12,
@@ -1422,12 +1047,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   userInfoCol: {
     flex: 1,
+    flexBasis: 150,
+    minWidth: 140,
   },
   userNameRow: {
     flexDirection: 'row',
@@ -1439,14 +1066,16 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   selfBadge: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 5,
-    paddingVertical: 1,
-    borderRadius: 4,
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#64748B',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
   },
   selfBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
+    color: '#64748B',
+    fontSize: 11,
     fontWeight: '800',
   },
   userEmail: {
@@ -1454,19 +1083,28 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   userEstablishment: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     marginTop: 2,
+  },
+  establishmentRow: {
+    alignItems: 'center',
+    gap: 5,
+    flexWrap: 'wrap',
   },
   roleBadgeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    minWidth: 44,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 8,
     borderRadius: 8,
+    borderWidth: 1,
   },
   roleBadgeText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
   },
   userStatusBar: {
@@ -1492,7 +1130,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   switchContainer: {
-    transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }],
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   centerContainer: {
     flex: 1,
@@ -1563,6 +1204,7 @@ const styles = StyleSheet.create({
   roleOptionItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    minHeight: 56,
     gap: 12,
     padding: 12,
     borderRadius: 14,
@@ -1575,9 +1217,32 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2,
   },
+  roleModalContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+  },
+  roleOptionIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  badgeTagText: {
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
   modalCancelBtn: {
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 44,
     paddingVertical: 12,
     borderWidth: 1,
     borderRadius: 12,

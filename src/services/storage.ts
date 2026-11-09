@@ -71,6 +71,14 @@ export const Storage = {
   async getItem(key: string): Promise<string | null> {
     try {
       if (Platform.OS === 'web') {
+        if (isSecureKey(key)) {
+          const legacyToken = typeof window !== 'undefined' ? window.localStorage?.getItem(key) : null;
+          if (legacyToken) {
+            window.localStorage.removeItem(key);
+            memoryFallback.setItem(key, legacyToken);
+          }
+          return memoryFallback.getItem(key);
+        }
         if (typeof window !== 'undefined' && window.localStorage) {
           return window.localStorage.getItem(key);
         }
@@ -110,6 +118,11 @@ export const Storage = {
   async setItem(key: string, value: string): Promise<void> {
     try {
       if (Platform.OS === 'web') {
+        if (isSecureKey(key)) {
+          if (typeof window !== 'undefined') window.localStorage?.removeItem(key);
+          memoryFallback.setItem(key, value);
+          return;
+        }
         if (typeof window !== 'undefined' && window.localStorage) {
           window.localStorage.setItem(key, value);
         }

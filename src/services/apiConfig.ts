@@ -5,7 +5,7 @@ import { Platform } from 'react-native';
 // Pour changer d'adresse IP (lorsque vous changez de Wi-Fi),
 // MODIFIEZ UNIQUEMENT CETTE VARIABLE 'SERVER_IP' CI-DESSOUS :
 // ============================================================================
-export const SERVER_IP = '192.168.0.127';
+export const SERVER_IP = '192.168.100.9';
 export const SERVER_PORT = 5000;
 
 /**

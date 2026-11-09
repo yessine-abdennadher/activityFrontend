@@ -8,7 +8,7 @@
 
 import { getApiBaseUrl, getFallbackApiUrls, setApiBaseUrl } from './apiConfig';
 import { Storage, STORAGE_KEYS } from './storage';
-import { getAuthToken } from './authService';
+import { fetchWithSessionRefresh, getAuthToken } from './authService';
 
 export interface ChatCardItem {
   id: string;
@@ -67,7 +67,7 @@ export interface ChatHistoryItem {
 function fetchWithTimeout(url: string, opts: RequestInit = {}, timeoutMs = 8000): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
-  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
+  return fetchWithSessionRefresh(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
 async function apiChatFetch(

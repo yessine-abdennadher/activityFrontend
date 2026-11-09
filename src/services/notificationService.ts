@@ -1,5 +1,5 @@
 import { getApiBaseUrl } from './apiConfig';
-import { getAuthToken } from './authService';
+import { fetchWithSessionRefresh, getAuthToken } from './authService';
 
 export interface AppNotification {
   id: string;
@@ -38,7 +38,7 @@ export async function fetchNotifications(lang: string = 'fr'): Promise<{
   unreadCount: number;
 }> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/notifications?lang=${lang}`, {
+    const res = await fetchWithSessionRefresh(`${getApiBaseUrl()}/notifications?lang=${lang}`, {
       method: 'GET',
       headers: buildHeaders(),
     });
@@ -64,7 +64,7 @@ export async function fetchNotifications(lang: string = 'fr'): Promise<{
  */
 export async function markNotificationAsRead(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/notifications/${id}/read`, {
+    const res = await fetchWithSessionRefresh(`${getApiBaseUrl()}/notifications/${id}/read`, {
       method: 'PATCH',
       headers: buildHeaders(),
     });
@@ -79,7 +79,7 @@ export async function markNotificationAsRead(id: string): Promise<boolean> {
  */
 export async function markAllNotificationsAsRead(): Promise<boolean> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/notifications/read-all`, {
+    const res = await fetchWithSessionRefresh(`${getApiBaseUrl()}/notifications/read-all`, {
       method: 'PATCH',
       headers: buildHeaders(),
     });
@@ -94,7 +94,7 @@ export async function markAllNotificationsAsRead(): Promise<boolean> {
  */
 export async function deleteNotification(id: string): Promise<boolean> {
   try {
-    const res = await fetch(`${getApiBaseUrl()}/notifications/${id}`, {
+    const res = await fetchWithSessionRefresh(`${getApiBaseUrl()}/notifications/${id}`, {
       method: 'DELETE',
       headers: buildHeaders(),
     });

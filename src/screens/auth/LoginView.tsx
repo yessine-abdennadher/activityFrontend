@@ -64,60 +64,6 @@ export const LoginView: React.FC<LoginViewProps> = ({
           </Text>
         </View>
 
-        {/* Demo Accounts Quick Chips */}
-        <View style={styles.demoSection}>
-          <Text style={[styles.demoTitle, isDark && styles.darkSub]}>⚡ Comptes démo rapides :</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.demoList}>
-            <TouchableOpacity
-              onPress={() => {
-                setEmail('user.sfax@activitytn.tn');
-                setPassword('User123456!');
-                onClearError();
-              }}
-              style={[
-                styles.demoChip,
-                email === 'user.sfax@activitytn.tn' && styles.demoChipActive,
-                isDark && styles.darkDemoChip,
-              ]}
-            >
-              <Text style={styles.demoEmoji}>👤</Text>
-              <Text style={[styles.demoText, isDark && styles.darkTitle]}>Découvreur</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                setEmail('partner.moulin@activitytn.tn');
-                setPassword('Partner123456!');
-                onClearError();
-              }}
-              style={[
-                styles.demoChip,
-                email === 'partner.moulin@activitytn.tn' && styles.demoChipActive,
-                isDark && styles.darkDemoChip,
-              ]}
-            >
-              <Text style={styles.demoEmoji}>☕</Text>
-              <Text style={[styles.demoText, isDark && styles.darkTitle]}>Café Le Moulin (Pro)</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => {
-                setEmail('admin@activitytn.tn');
-                setPassword('Admin123456!');
-                onClearError();
-              }}
-              style={[
-                styles.demoChip,
-                email === 'admin@activitytn.tn' && styles.demoChipActive,
-                isDark && styles.darkDemoChip,
-              ]}
-            >
-              <Text style={styles.demoEmoji}>👑</Text>
-              <Text style={[styles.demoText, isDark && styles.darkTitle]}>Admin</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-
         {/* Form Inputs */}
         <View style={styles.form}>
           {/* Email input */}
@@ -289,45 +235,6 @@ const styles = StyleSheet.create({
   },
   darkSub: {
     color: '#94A3B8',
-  },
-  demoSection: {
-    marginBottom: 16,
-  },
-  demoTitle: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    marginBottom: 6,
-  },
-  demoList: {
-    gap: 8,
-  },
-  demoChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#F1F5F9',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  demoChipActive: {
-    backgroundColor: '#EEF2FF',
-    borderColor: '#818CF8',
-  },
-  darkDemoChip: {
-    backgroundColor: '#1E293B',
-    borderColor: '#334155',
-  },
-  demoEmoji: {
-    fontSize: 13,
-  },
-  demoText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#334155',
   },
   form: {
     gap: 14,

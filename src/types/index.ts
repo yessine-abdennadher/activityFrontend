@@ -207,29 +207,74 @@ export interface AdminUser {
   createdAt?: string;
 }
 
+export interface AdminPartnerOffer {
+  activityId: string;
+  activityName: string;
+  promoLabel?: string;
+  discountPercent?: number;
+  targetItem?: string;
+  promoType?: string;
+  validUntil?: string;
+}
+
+export interface AdminPartnerActivitySummary {
+  id: string;
+  name: string;
+  category: string;
+  price: number;
+  rating?: number;
+  isApproved: boolean;
+  isFeatured?: boolean;
+  isPopular?: boolean;
+  openingHours?: string;
+  promotion?: {
+    isPromo?: boolean;
+    promoType?: string;
+    discountPercent?: number;
+    targetItem?: string;
+    promoLabel?: string;
+    validUntil?: string;
+  };
+  eventsCount?: number;
+}
+
+export interface AdminPartnerStatus {
+  id: string;
+  name: string;
+  email: string;
+  establishmentName?: string;
+  partnerTier: PartnerTier;
+  requestedTier?: string;
+  requestedBillingCycle?: string;
+  subscriptionStatus?: string;
+  subscriptionStartedAt?: string;
+  subscriptionExpiresAt?: string | null;
+  lastLogin?: string;
+  lastActivityUpdate?: string;
+  createdAt?: string;
+  activityCount: number;
+  isInactive: boolean;
+  hasStaleData: boolean;
+  city?: string;
+  phone?: string;
+  isActive?: boolean;
+  activities?: AdminPartnerActivitySummary[];
+  offers?: AdminPartnerOffer[];
+}
+
+export interface AdminDiagnostics {
+  electricityAlertActive?: boolean;
+  telemetry: {
+    totalSessions: number;
+    screenViews: Array<{ screenName: string; count: number }>;
+    dailySessions: Array<{ date: string; count: number }>;
+  };
+  partnersStatus: AdminPartnerStatus[];
+}
+
 export interface AdminDiagnosticsResponse {
   success: boolean;
-  diagnostics: {
-    telemetry: {
-      totalSessions: number;
-      screenViews: Array<{ screenName: string; count: number }>;
-      dailySessions: Array<{ date: string; count: number }>;
-    };
-    partnersStatus: Array<{
-      id: string;
-      name: string;
-      email: string;
-      establishmentName?: string;
-      partnerTier: PartnerTier;
-      lastLogin?: string;
-      lastActivityUpdate?: string;
-      activityCount: number;
-      isInactive: boolean;
-      hasStaleData: boolean;
-      city?: string;
-      phone?: string;
-    }>;
-  };
+  diagnostics: AdminDiagnostics;
 }
 
 export interface AdminActivityItem {

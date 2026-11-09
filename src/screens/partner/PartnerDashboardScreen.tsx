@@ -14,7 +14,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { usePreferences } from '../context/AppPreferencesContext';
+import { usePreferences } from '../../context/AppPreferencesContext';
 import {
   fetchPartnerMyActivities,
   createPartnerActivity,
@@ -23,22 +23,22 @@ import {
   togglePartnerPowerMode,
   updatePartnerPromotion,
   addPartnerEvent,
-} from '../services/partnerService';
+} from '../../services/partnerService';
 import type {
   PartnerStats,
   PartnerActivityItem,
   PartnerActivityInput,
   AuthUser,
-} from '../types';
-import { PartnerPowerModeSwitch } from '../components/partner/PartnerPowerModeSwitch';
-import { PartnerProPromoModal } from '../components/partner/PartnerProPromoModal';
-import { PartnerProEventModal } from '../components/partner/PartnerProEventModal';
-import { PartnerTierStatusCard } from '../components/partner/PartnerTierStatusCard';
-import { PartnerUpgradeModal } from '../components/partner/PartnerUpgradeModal';
-import { PartnerActivityModal, strip216 } from '../components/partner/PartnerActivityModal';
-import { fetchCurrentUserProfile } from '../services/authService';
-import { queryClient } from '../lib/queryClient';
-import type { PartnerTier } from '../types';
+} from '../../types';
+import { PartnerPowerModeSwitch } from '../../components/partner/PartnerPowerModeSwitch';
+import { PartnerProPromoModal } from '../../components/partner/PartnerProPromoModal';
+import { PartnerProEventModal } from '../../components/partner/PartnerProEventModal';
+import { PartnerTierStatusCard } from '../../components/partner/PartnerTierStatusCard';
+import { PartnerUpgradeModal } from '../../components/partner/PartnerUpgradeModal';
+import { PartnerActivityModal, strip216 } from '../../components/partner/PartnerActivityModal';
+import { fetchCurrentUserProfile } from '../../services/authService';
+import { queryClient } from '../../lib/queryClient';
+import type { PartnerTier } from '../../types';
 
 interface PartnerDashboardScreenProps {
   currentUser: AuthUser | null;
