@@ -17,12 +17,14 @@ function requireNativeAuthentication(): void {
 export class AdminMfaRequiredError extends Error {
   challengeId: string;
   maskedEmail: string;
+  devOtp?: string;
 
-  constructor(challengeId: string, maskedEmail: string) {
+  constructor(challengeId: string, maskedEmail: string, devOtp?: string) {
     super('Une vérification administrateur par email est nécessaire.');
     this.name = 'AdminMfaRequiredError';
     this.challengeId = challengeId;
     this.maskedEmail = maskedEmail;
+    this.devOtp = devOtp;
   }
 }
 
@@ -188,7 +190,7 @@ export async function login(email: string, password: string): Promise<AuthUser> 
 
   const payload = await response.json();
   if (payload.mfaRequired && payload.challengeId) {
-    throw new AdminMfaRequiredError(payload.challengeId, payload.maskedEmail || 'votre adresse email');
+    throw new AdminMfaRequiredError(payload.challengeId, payload.maskedEmail || 'votre adresse email', payload.devOtp);
   }
   if (!response.ok) {
     throw new Error(payload.message || 'Erreur lors de la connexion.');

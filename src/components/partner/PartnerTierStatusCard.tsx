@@ -43,9 +43,9 @@ export const PartnerTierStatusCard: React.FC<PartnerTierStatusCardProps> = ({
           <View style={styles.titleRow}>
             <Text style={[styles.tierTitle, { color: theme.textMain }]}>
               {isPremium
-                ? 'Partenaire PREMIUM 👑'
+                ? 'Partenaire PREMIUM'
                 : isPro
-                ? 'Partenaire PRO ⭐'
+                ? 'Partenaire PRO'
                 : 'Partenaire STANDARD'}
             </Text>
           </View>

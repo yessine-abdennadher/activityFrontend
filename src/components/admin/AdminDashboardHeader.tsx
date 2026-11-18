@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../theme/theme';
@@ -46,7 +46,7 @@ export const AdminDashboardHeader: React.FC<AdminDashboardHeaderProps> = ({
           </View>
         </View>
         <Text style={[styles.headerSubtitle, { color: theme.textMuted, textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
-          {administratorName || administratorLabel} · Tfarhida
+          {administratorName || administratorLabel} Â· Hamla
         </Text>
       </View>
     </View>
@@ -88,3 +88,4 @@ const styles = StyleSheet.create({
   adminBadgeText: { fontSize: 10, fontWeight: '800' },
   headerSubtitle: { fontSize: 12, marginTop: 2 },
 });
+

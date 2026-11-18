@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Alert, SafeAreaView, StatusBar, Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useToast } from '../components/ui/Toast';
 import { AuthUser } from '../types';
-import { AdminMfaRequiredError, login, register, verifyAdminMfa } from '../services/authService';
+import { AdminMfaRequiredError, login, register, verifyAdminMfa, loginWithGoogle } from '../services/authService';
 import { useTranslation } from '../hooks/useTranslation';
+
+WebBrowser.maybeCompleteAuthSession();
 
 // Architectural Auth sub-components
 import { AuthBackground } from './auth/AuthBackground';
@@ -45,6 +50,47 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [authSuccess, setAuthSuccess] = useState<string | null>(null);
   const [mfaChallenge, setMfaChallenge] = useState<{ challengeId: string; maskedEmail: string } | null>(null);
   const [mfaCode, setMfaCode] = useState('');
+
+  // Google OAuth Hook avec redirectUri universel compatible Expo Go & Build autonome
+  const redirectUri = makeRedirectUri({
+    scheme: 'hamla',
+    path: 'oauthredirect',
+  });
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID || '180217308994-427lli8bnm1ednklogio9piecdvr5fjd.apps.googleusercontent.com',
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '180217308994-vhs8mp2a2v4vpcq91u2ua2rn1s1c4df6.apps.googleusercontent.com',
+    redirectUri,
+  });
+
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { authentication, params } = response;
+      const idToken = authentication?.idToken || (params as any)?.id_token;
+      const accessToken = authentication?.accessToken;
+
+      const authenticateGoogleUser = async () => {
+        setGoogleLoading(true);
+        setIsLoading(true);
+        try {
+          const user = await loginWithGoogle(idToken || accessToken);
+          toast.success(`Bienvenue ${user.name} !`, 'Connexion réussie');
+          if (onSuccess) onSuccess(user);
+        } catch (err: any) {
+          const errorMsg = err?.message || 'Erreur lors de la connexion Google';
+          setAuthError(errorMsg);
+          toast.error(errorMsg, t('error'));
+        } finally {
+          setGoogleLoading(false);
+          setIsLoading(false);
+        }
+      };
+
+      authenticateGoogleUser();
+    }
+  }, [response]);
 
   const handleHeaderBack = () => {
     if (mfaChallenge) {
@@ -120,7 +166,10 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     } catch (error) {
       if (error instanceof AdminMfaRequiredError) {
         setMfaChallenge({ challengeId: error.challengeId, maskedEmail: error.maskedEmail });
-        setMfaCode('');
+        setMfaCode(error.devOtp || '');
+        if (error.devOtp) {
+          toast.info(`Code Admin (Dev) : ${error.devOtp}`, 'Code de vérification');
+        }
         return;
       }
       const errorMsg =
@@ -153,11 +202,11 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   };
 
   const handleGoogleSignInPress = () => {
-    if (Platform.OS === 'web') {
-      Alert.alert(t('googleSignInUnavailableTitle'), t('webAuthUnavailable'));
-      return;
+    if (promptAsync) {
+      promptAsync();
+    } else {
+      toast.error('Configuration Google non disponible', t('error'));
     }
-    Alert.alert(t('googleSignInUnavailableTitle'), t('googleSignInUnavailableMessage'));
   };
 
   return (
@@ -219,7 +268,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               onSubmit={handleEmailAuth}
               isLoading={isLoading}
               onGooglePress={handleGoogleSignInPress}
-              googleLoading={false}
+              googleLoading={googleLoading}
               onSwitchToSignup={() => {
                 setMode('signup');
                 setAuthError(null);
@@ -248,7 +297,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               onSubmit={handleEmailAuth}
               isLoading={isLoading}
               onGooglePress={handleGoogleSignInPress}
-              googleLoading={false}
+              googleLoading={googleLoading}
               onSwitchToLogin={() => {
                 setMode('login');
                 setAuthError(null);

@@ -33,9 +33,12 @@ import type {
 import { PartnerPowerModeSwitch } from '../../components/partner/PartnerPowerModeSwitch';
 import { PartnerProPromoModal } from '../../components/partner/PartnerProPromoModal';
 import { PartnerProEventModal } from '../../components/partner/PartnerProEventModal';
-import { PartnerTierStatusCard } from '../../components/partner/PartnerTierStatusCard';
 import { PartnerUpgradeModal } from '../../components/partner/PartnerUpgradeModal';
 import { PartnerActivityModal, strip216 } from '../../components/partner/PartnerActivityModal';
+import { PartnerMenuModal } from '../../components/partner/PartnerMenuModal';
+import { PartnerOverviewTab } from './tabs/PartnerOverviewTab';
+import { PartnerVenueTab } from './tabs/PartnerVenueTab';
+import { PartnerPerformanceTab } from './tabs/PartnerPerformanceTab';
 import { fetchCurrentUserProfile } from '../../services/authService';
 import { queryClient } from '../../lib/queryClient';
 import type { PartnerTier } from '../../types';
@@ -70,6 +73,10 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   const [modalVisible, setModalVisible] = useState(false);
   const [editingActivity, setEditingActivity] = useState<PartnerActivityItem | null>(null);
 
+  // Modal Menu dédié
+  const [menuModalVisible, setMenuModalVisible] = useState(false);
+  const [menuTargetActivity, setMenuTargetActivity] = useState<PartnerActivityItem | null>(null);
+
   // Modal Promo Pro & Premium
   const [promoModalVisible, setPromoModalVisible] = useState(false);
   const [promoTarget, setPromoTarget] = useState<PartnerActivityItem | null>(null);
@@ -92,6 +99,9 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   // Modal Upgrade & Détails Forfait Partenaire
   const [upgradeModalVisible, setUpgradeModalVisible] = useState(false);
   const [targetUpgradeTier, setTargetUpgradeTier] = useState<'pro' | 'premium'>('pro');
+
+  // Onglet actif : 'overview' (Aperçu) | 'venue' (Fiche & Menu) | 'stats' (Performance)
+  const [activeTab, setActiveTab] = useState<'overview' | 'venue' | 'stats'>('overview');
 
   // Palier temps réel dynamique (initialisé depuis le cache utilisateur puis synchronisé via l'API)
   const [livePartnerTier, setLivePartnerTier] = useState<PartnerTier>(
@@ -186,9 +196,9 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       );
       await invalidateAppQueries();
       Alert.alert(
-        nextVal ? '💡 Mode Électricité & Lumière ACTIVÉ' : 'Mode Lumière désactivé',
+        nextVal ? 'Mode Électricité & Lumière ACTIVÉ' : 'Mode Lumière désactivé',
         nextVal
-          ? 'Votre offre affiche maintenant la lampe dorée allumée 💡 sur la carte pour tous les visiteurs !'
+          ? 'Votre offre affiche maintenant le badge lumière garantie sur la carte pour tous les visiteurs !'
           : 'Le mode lumière garantie est désormais éteint sur votre fiche.'
       );
     } catch (err: any) {
@@ -228,7 +238,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       );
       await invalidateAppQueries();
       setPromoModalVisible(false);
-      Alert.alert('Succès 🎉', 'Votre promotion a été enregistrée avec succès et diffusée aux utilisateurs !');
+      Alert.alert('Succès ', 'Votre promotion a été enregistrée avec succès et diffusée aux utilisateurs !');
     } catch (err: any) {
       Alert.alert('Erreur', err.message);
     }
@@ -271,10 +281,41 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       );
       await invalidateAppQueries();
       setEventModalVisible(false);
-      Alert.alert('Soirée Live publiée 🎉', 'Votre événement a été ajouté à votre fiche établissement !');
+      Alert.alert('Soirée Live publiée ', 'Votre événement a été ajouté à votre fiche établissement !');
     } catch (err: any) {
       Alert.alert('Erreur', err.message);
     }
+  };
+
+  const handleOpenMenuModal = (item: PartnerActivityItem) => {
+    setMenuTargetActivity(item);
+    setMenuModalVisible(true);
+  };
+
+  const handleSaveMenu = async (
+    activityId: string,
+    menuImageUrl?: string,
+    menuUrl?: string,
+    sections?: any[]
+  ) => {
+    const updated = await updatePartnerActivity(activityId, {
+      menuImageUrl,
+      menuUrl,
+      menu: sections ? { sections } : undefined,
+    });
+    setActivities((prev) =>
+      prev.map((a) =>
+        a._id === activityId
+          ? {
+              ...a,
+              menuImageUrl: updated.menuImageUrl,
+              menuUrl: updated.menuUrl,
+              menu: updated.menu || (sections ? { sections } : a.menu),
+            }
+          : a
+      )
+    );
+    await invalidateAppQueries();
   };
 
   const handleSaveActivity = async (payload: PartnerActivityInput) => {
@@ -284,7 +325,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         setActivities((prev) =>
           prev.map((a) => (a._id === editingActivity._id ? { ...a, ...updated } : a))
         );
-        Alert.alert('Succès 🎉', 'Votre établissement a été mis à jour.');
+        Alert.alert('Succès ', 'Votre établissement a été mis à jour.');
       } else {
         const created = await createPartnerActivity(payload);
         setActivities((prev) => [created, ...prev]);
@@ -294,7 +335,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
           pending: prev.pending + 1,
         }));
         Alert.alert(
-          'Établissement enregistré 🎉',
+          'Établissement enregistré ',
           'Votre établissement a été soumis avec succès. Il sera visible dès validation par la modération.'
         );
       }
@@ -335,80 +376,232 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
     );
   };
 
+  const mainActivity = activities[0] || null;
+  const mainActivityImg = mainActivity?.imageUrl || mainActivity?.image || null;
+  const isVenueOnline = Boolean(mainActivity?.isApproved);
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
-      {/* Header Pro */}
+      {/* Header Professionnel Haute Fidélité */}
       <View style={[styles.header, { backgroundColor: theme.cardBg, borderBottomColor: theme.cardBorder }]}>
-        <View style={styles.headerLeft}>
+        {/* Ligne Principale : Retour + Identité Établissement + Refresh */}
+        <View style={styles.headerTopRow}>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
             onPress={onBack}
             activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Ionicons name="arrow-back" size={20} color={theme.textMain} />
           </TouchableOpacity>
-          <View>
-            <View style={styles.titleRow}>
-              <Text style={[styles.headerTitle, { color: theme.textMain }]} numberOfLines={1}>
-                {currentUser?.establishmentName || 'Espace Partenaire Pro'}
-              </Text>
-              <TouchableOpacity
-                style={[
-                  styles.partnerBadge,
-                  {
-                    backgroundColor:
-                      effectiveTier === 'premium'
-                        ? '#7C3AED'
-                        : effectiveTier === 'pro'
-                        ? '#EA580C'
-                        : '#475569',
-                  },
-                ]}
-                onPress={() => {
-                  setTargetUpgradeTier(
-                    effectiveTier === 'premium'
-                      ? 'premium'
-                      : isProPartner
-                      ? 'premium'
-                      : 'pro'
-                  );
-                  setUpgradeModalVisible(true);
-                }}
-                activeOpacity={0.8}
-                accessibilityRole="button"
-                accessibilityLabel="Détails du forfait partenaire"
-              >
-                <Ionicons
-                  name={
-                    effectiveTier === 'premium'
-                      ? 'ribbon'
-                      : effectiveTier === 'pro'
-                      ? 'star'
-                      : 'business'
-                  }
-                  size={11}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.partnerBadgeText}>
-                  {effectiveTier === 'premium'
-                    ? 'PREMIUM 👑'
-                    : effectiveTier === 'pro'
-                    ? 'PRO ⭐'
-                    : 'STANDARD'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={[styles.headerSubtitle, { color: theme.textMuted }]}>
-              {currentUser?.name} · {currentUser?.city || 'Tunisie'}
-            </Text>
+
+          {/* Avatar / Vignette avec indicateur En ligne */}
+          <View style={styles.avatarWrapper}>
+            {mainActivityImg ? (
+              <Image source={{ uri: mainActivityImg }} style={styles.venueAvatar} />
+            ) : (
+              <View style={[styles.venueAvatarPlaceholder, { backgroundColor: isDark ? '#312E81' : '#EEF2FF' }]}>
+                <Ionicons name="restaurant" size={20} color={theme.primary} />
+              </View>
+            )}
+            <View
+              style={[
+                styles.liveStatusDot,
+                { backgroundColor: isVenueOnline ? '#10B981' : '#F59E0B' },
+              ]}
+            />
           </View>
+
+          {/* Titre & Localisation & Statut */}
+          <View style={styles.headerTitleCol}>
+            <Text style={[styles.headerTitle, { color: theme.textMain }]} numberOfLines={1}>
+              {currentUser?.establishmentName || mainActivity?.name || 'Mon Établissement'}
+            </Text>
+            <View style={styles.headerMetaRow}>
+              <View style={styles.statusPill}>
+                <View
+                  style={[
+                    styles.statusPillDot,
+                    { backgroundColor: isVenueOnline ? '#10B981' : '#F59E0B' },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    { color: isVenueOnline ? '#059669' : '#D97706' },
+                  ]}
+                >
+                  {isVenueOnline ? 'En ligne' : 'En modération'}
+                </Text>
+              </View>
+              <Text style={[styles.metaSeparator, { color: theme.textMuted }]}>·</Text>
+              <Ionicons name="location-outline" size={12} color={theme.textMuted} />
+              <Text style={[styles.headerSubtitle, { color: theme.textMuted }]} numberOfLines={1}>
+                {mainActivity?.city || currentUser?.city || 'Tunisie'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Bouton Rafraîchir */}
+          <TouchableOpacity
+            style={[styles.refreshIconButton, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
+            onPress={onPullRefresh}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh" size={18} color={theme.primary} />
+          </TouchableOpacity>
         </View>
 
+        {/* Bandeau Statut Forfait & Upgrade Direct */}
         <TouchableOpacity
-          style={[styles.refreshIconButton, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
-          onPress={onPullRefresh}
+          style={[
+            styles.tierStrip,
+            {
+              backgroundColor: isPremiumPartner
+                ? isDark ? '#3B076440' : '#FAF5FF'
+                : isProPartner
+                ? isDark ? '#43140740' : '#FFF7ED'
+                : isDark ? '#0F172A' : '#F8FAFC',
+              borderColor: isPremiumPartner
+                ? '#C084FC'
+                : isProPartner
+                ? '#FDBA74'
+                : theme.cardBorder,
+            },
+          ]}
+          onPress={() => {
+            setTargetUpgradeTier(
+              effectiveTier === 'premium'
+                ? 'premium'
+                : isProPartner
+                ? 'premium'
+                : 'pro'
+            );
+            setUpgradeModalVisible(true);
+          }}
+          activeOpacity={0.8}
         >
-          <Ionicons name="refresh" size={18} color={theme.primary} />
+          <View style={styles.tierStripLeft}>
+            <Ionicons
+              name={
+                effectiveTier === 'premium'
+                  ? 'ribbon'
+                  : effectiveTier === 'pro'
+                  ? 'star'
+                  : 'shield-checkmark'
+              }
+              size={14}
+              color={
+                effectiveTier === 'premium'
+                  ? '#9333EA'
+                  : effectiveTier === 'pro'
+                  ? '#EA580C'
+                  : '#64748B'
+              }
+            />
+            <Text
+              style={[
+                styles.tierStripName,
+                {
+                  color:
+                    effectiveTier === 'premium'
+                      ? '#9333EA'
+                      : effectiveTier === 'pro'
+                      ? '#EA580C'
+                      : theme.textMain,
+                },
+              ]}
+            >
+              Pack {effectiveTier.toUpperCase()}
+            </Text>
+          </View>
+
+          <View style={styles.tierStripCta}>
+            <Text
+              style={[
+                styles.tierStripCtaText,
+                {
+                  color:
+                    effectiveTier === 'premium'
+                      ? '#9333EA'
+                      : '#4F46E5',
+                },
+              ]}
+            >
+              {effectiveTier === 'premium' ? 'Privilèges VIP' : 'Booster ma fiche'}
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={13}
+              color={effectiveTier === 'premium' ? '#9333EA' : '#4F46E5'}
+            />
+          </View>
+        </TouchableOpacity>
+      </View>
+
+      {/* Barre d'onglets épurée : 1. Aperçu | 2. Fiche & Menu | 3. Performance */}
+      <View style={[styles.tabBar, { backgroundColor: theme.cardBg, borderBottomColor: theme.cardBorder }]}>
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'overview' && styles.tabItemActive]}
+          onPress={() => setActiveTab('overview')}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={activeTab === 'overview' ? 'home' : 'home-outline'}
+            size={18}
+            color={activeTab === 'overview' ? theme.primary : theme.textMuted}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 'overview' ? theme.primary : theme.textMuted },
+              activeTab === 'overview' && styles.tabTextActive,
+            ]}
+          >
+            Aperçu
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'venue' && styles.tabItemActive]}
+          onPress={() => setActiveTab('venue')}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={activeTab === 'venue' ? 'restaurant' : 'restaurant-outline'}
+            size={18}
+            color={activeTab === 'venue' ? theme.primary : theme.textMuted}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 'venue' ? theme.primary : theme.textMuted },
+              activeTab === 'venue' && styles.tabTextActive,
+            ]}
+          >
+            Fiche & Menu
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.tabItem, activeTab === 'stats' && styles.tabItemActive]}
+          onPress={() => setActiveTab('stats')}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name={activeTab === 'stats' ? 'stats-chart' : 'stats-chart-outline'}
+            size={18}
+            color={activeTab === 'stats' ? theme.primary : theme.textMuted}
+          />
+          <Text
+            style={[
+              styles.tabText,
+              { color: activeTab === 'stats' ? theme.primary : theme.textMuted },
+              activeTab === 'stats' && styles.tabTextActive,
+            ]}
+          >
+            Performance
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -431,340 +624,74 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
             <Text style={styles.retryBtnText}>Réessayer</Text>
           </TouchableOpacity>
         </View>
+      ) : activeTab === 'overview' ? (
+        <PartnerOverviewTab
+          activity={mainActivity}
+          effectiveTier={effectiveTier}
+          isProPartner={isProPartner}
+          isPremiumPartner={isPremiumPartner}
+          refreshing={refreshing}
+          theme={theme}
+          isDark={isDark}
+          onRefresh={onPullRefresh}
+          onEditPress={() => {
+            if (mainActivity) openEditModal(mainActivity);
+            else openCreateModal();
+          }}
+          onPromoPress={() => {
+            if (mainActivity) handleOpenPromo(mainActivity);
+          }}
+          onEventPress={() => {
+            if (mainActivity) handleOpenEvent(mainActivity);
+          }}
+          onSharePress={() => {
+            if (mainActivity) {
+              Alert.alert('Lien Partenaire', 'Partagez votre fiche Hamla : https://hamla.tn/activite/' + mainActivity._id);
+            }
+          }}
+          onUpgradePress={(target) => {
+            setTargetUpgradeTier(target);
+            setUpgradeModalVisible(true);
+          }}
+          onUpgradeInfoPress={() => {
+            setTargetUpgradeTier(
+              effectiveTier === 'premium'
+                ? 'premium'
+                : isProPartner
+                ? 'premium'
+                : 'pro'
+            );
+            setUpgradeModalVisible(true);
+          }}
+          onSwitchToVenueTab={() => setActiveTab('venue')}
+        />
+      ) : activeTab === 'venue' ? (
+        <PartnerVenueTab
+          activities={activities}
+          currentUserEstablishmentName={currentUser?.establishmentName}
+          electricityAlertActive={electricityAlertActive}
+          isProPartner={isProPartner}
+          isPremiumPartner={isPremiumPartner}
+          refreshing={refreshing}
+          theme={theme}
+          isDark={isDark}
+          onRefresh={onPullRefresh}
+          onCreatePress={openCreateModal}
+          onEditPress={openEditModal}
+          onMenuPress={handleOpenMenuModal}
+          onDeletePress={handleDeleteActivity}
+          onPromoPress={handleOpenPromo}
+          onEventPress={handleOpenEvent}
+          onTogglePowerMode={handleTogglePowerMode}
+        />
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onPullRefresh}
-              colors={[theme.primary]}
-              tintColor={theme.primary}
-            />
-          }
-        >
-          {/* Carte de Statut et Privilèges Partenaire */}
-          <PartnerTierStatusCard
-            tier={effectiveTier}
-            onPressUpgrade={(target) => {
-              setTargetUpgradeTier(target);
-              setUpgradeModalVisible(true);
-            }}
-            onPressInfo={() => {
-              setTargetUpgradeTier(
-                effectiveTier === 'premium'
-                  ? 'premium'
-                  : isProPartner
-                  ? 'premium'
-                  : 'pro'
-              );
-              setUpgradeModalVisible(true);
-            }}
-          />
-
-          {/* Banner Établissement (ex: Restaurant / Café / Loisir) */}
-          <View
-            style={[
-              styles.establishmentHero,
-              {
-                backgroundColor: isDark ? '#1E1B4B' : '#EEF2FF',
-                borderColor: isDark ? '#4338CA' : '#C7D2FE',
-              },
-            ]}
-          >
-            <View style={styles.heroTopRow}>
-              <View style={styles.heroIconBox}>
-                <Ionicons name="restaurant" size={26} color="#4F46E5" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.heroEstablishmentName, { color: isDark ? '#FFFFFF' : '#1E1B4B' }]}>
-                  {currentUser?.establishmentName || 'Mon Restaurant / Établissement'}
-                </Text>
-                <Text style={[styles.heroSub, { color: isDark ? '#C7D2FE' : '#4F46E5' }]}>
-                  Gérez vos menus, offres spéciales et réservations directes sans commission.
-                </Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.addCtaButton}
-              onPress={openCreateModal}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="add-circle" size={18} color="#FFFFFF" />
-              <Text style={styles.addCtaText}>+ Ajouter un établissement / lieu</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Grille de KPI de l'établissement */}
-          <View style={styles.kpiGrid}>
-            <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.kpiValue, { color: theme.textMain }]}>{stats.total}</Text>
-              <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>Établissements</Text>
-              <Text style={[styles.kpiSub, { color: '#10B981' }]}>{stats.approved} en ligne</Text>
-            </View>
-
-            <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.kpiValue, { color: stats.pending > 0 ? '#F59E0B' : '#10B981' }]}>
-                {stats.pending}
-              </Text>
-              <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>En Modération</Text>
-              <Text style={[styles.kpiSub, { color: theme.textMuted }]}>Validation admin</Text>
-            </View>
-
-            <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-              <Text style={[styles.kpiValue, { color: '#F59E0B' }]}>★ {stats.averageRating}</Text>
-              <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>Note Moyenne</Text>
-              <Text style={[styles.kpiSub, { color: theme.textMuted }]}>{stats.totalReviews} avis clients</Text>
-            </View>
-          </View>
-
-          {/* Liste des Activités du Partenaire */}
-          <View style={styles.sectionHeaderRow}>
-            <Text style={[styles.sectionTitle, { color: theme.textMain }]}>
-              Vos Établissements & Lieux ({activities.length})
-            </Text>
-          </View>
-
-          {activities.length === 0 ? (
-            <View style={[styles.emptyContainer, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-              <Ionicons name="restaurant-outline" size={48} color={theme.textMuted} />
-              <Text style={[styles.emptyTitle, { color: theme.textMain }]}>
-                Aucun établissement enregistré pour le moment
-              </Text>
-              <Text style={[styles.emptySubtitle, { color: theme.textMuted }]}>
-                Ajoutez dès maintenant votre restaurant, salon de thé ou formule loisir pour attirer de nouveaux clients !
-              </Text>
-              <TouchableOpacity style={styles.emptyAddBtn} onPress={openCreateModal}>
-                <Text style={styles.emptyAddBtnText}>Ajouter mon premier établissement</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <View style={styles.activityList}>
-              {activities.map((item) => {
-                const imgUri = item.imageUrl || item.image;
-                return (
-                  <View
-                    key={item._id}
-                    style={[styles.activityCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}
-                  >
-                    <View style={styles.activityCardTop}>
-                      {imgUri ? (
-                        <Image source={{ uri: imgUri }} style={styles.activityThumbnail as any} />
-                      ) : (
-                        <View style={[styles.thumbnailPlaceholder, { backgroundColor: isDark ? '#334155' : '#E2E8F0' }]}>
-                          <Ionicons name="image-outline" size={24} color={theme.textMuted} />
-                        </View>
-                      )}
-
-                      <View style={styles.activityCardInfo}>
-                        <View style={styles.titleStatusRow}>
-                          <Text style={[styles.activityName, { color: theme.textMain }]} numberOfLines={1}>
-                            {item.name}
-                          </Text>
-                          <View
-                            style={[
-                              styles.statusBadge,
-                              { backgroundColor: item.isApproved ? '#DCFCE7' : '#FEF3C7' },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.statusBadgeText,
-                                { color: item.isApproved ? '#15803D' : '#B45309' },
-                              ]}
-                            >
-                              {item.isApproved ? 'En ligne' : 'En attente'}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <Text style={[styles.activitySubText, { color: theme.textMuted }]}>
-                          {item.city} · {item.category} · <Text style={{ color: theme.primary, fontWeight: '800' }}>{item.price} DT</Text>
-                        </Text>
-
-                        {/* Aménagements */}
-                        <View style={styles.amenitiesRow}>
-                          {item.hasAirConditioning && (
-                            <View style={styles.amenityChip}>
-                              <Text style={styles.amenityText}>❄️ Clim</Text>
-                            </View>
-                          )}
-                          {electricityAlertActive && item.hasPowerBackup && (
-                            <View style={styles.amenityChip}>
-                              <Text style={styles.amenityText}>⚡ Générateur</Text>
-                            </View>
-                          )}
-                          <View style={styles.ratingChip}>
-                            <Ionicons name="star" size={11} color="#F59E0B" />
-                            <Text style={styles.ratingText}>
-                              {(item.reviewsCount && item.reviewsCount > 0) ? (item.rating || 0) : 0} ({item.reviewsCount || 0})
-                            </Text>
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-
-                    {/* Mode Électricité / Lumière en direct (Uniquement si activé par l'Administrateur) */}
-                    {electricityAlertActive && (
-                      <PartnerPowerModeSwitch
-                        powerBackupMode={item.powerBackupMode !== false}
-                        isDark={isDark}
-                        theme={theme}
-                        onToggle={() => handleTogglePowerMode(item)}
-                      />
-                    )}
-
-                    {/* Horaires et Options Partenaire Pro (Promotions & Soirées Live) */}
-                    <View style={{ paddingHorizontal: 14, marginTop: 8, gap: 6 }}>
-                      {/* Horaires */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Ionicons name="time-outline" size={13} color="#10B981" />
-                        <Text style={{ fontSize: 11, fontWeight: '700', color: theme.textMain }}>
-                          Horaires : {item.openingTime || '09:00'} - {item.closingTime || '23:00'} ({item.openDays && item.openDays.length > 0 ? item.openDays[0] : 'Tous les jours'})
-                        </Text>
-                      </View>
-
-                      {/* Promo active */}
-                      {item.promotion?.isPromo && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF2F2', padding: 6, borderRadius: 8 }}>
-                          <Text style={{ fontSize: 12 }}>🏷️</Text>
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#DC2626' }}>
-                            Promo active : {item.promotion.promoLabel} (-{item.promotion.discountPercent}%)
-                          </Text>
-                        </View>
-                      )}
-
-                      {/* Événement actif */}
-                      {Boolean(item.events && item.events.length > 0) && (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FDF2F8', padding: 6, borderRadius: 8 }}>
-                          <Text style={{ fontSize: 12 }}>🎵</Text>
-                          <Text style={{ fontSize: 11, fontWeight: '800', color: '#DB2777' }}>
-                            Soirée : {item.events![0].title} ({item.events![0].date} {item.events![0].time})
-                          </Text>
-                        </View>
-                      )}
-
-                      {/* Boutons Pro Promo & Soirée */}
-                      <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
-                        <TouchableOpacity
-                          onPress={() => handleOpenPromo(item)}
-                          style={{
-                            flex: 1,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 5,
-                            backgroundColor: isProPartner
-                              ? item.promotion?.isPromo
-                                ? '#FEF2F2'
-                                : isDark
-                                ? '#450A0A30'
-                                : '#FFF1F2'
-                              : isDark
-                              ? '#1E293B'
-                              : '#F1F5F9',
-                            borderColor: isProPartner ? '#F87171' : theme.cardBorder,
-                            borderWidth: 1,
-                            paddingVertical: 8,
-                            borderRadius: 10,
-                          }}
-                        >
-                          <Ionicons
-                            name={isProPartner ? 'pricetag' : 'lock-closed'}
-                            size={13}
-                            color={isProPartner ? '#DC2626' : theme.textMuted}
-                          />
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontWeight: '800',
-                              color: isProPartner ? '#DC2626' : theme.textMuted,
-                            }}
-                          >
-                            {isProPartner
-                              ? item.promotion?.isPromo
-                                ? `🏷️ Promo (-${item.promotion.discountPercent}%)`
-                                : '🏷️ Gérer Promo'
-                              : '🔒 Promo % (Pro)'}
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          onPress={() => handleOpenEvent(item)}
-                          style={{
-                            flex: 1,
-                            flexDirection: 'row',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: 5,
-                            backgroundColor: isPremiumPartner
-                              ? isDark
-                                ? '#3B076430'
-                                : '#FAF5FF'
-                              : isDark
-                              ? '#1E293B'
-                              : '#F1F5F9',
-                            borderColor: isPremiumPartner ? '#C084FC' : theme.cardBorder,
-                            borderWidth: 1,
-                            paddingVertical: 8,
-                            borderRadius: 10,
-                          }}
-                        >
-                          <Ionicons
-                            name={isPremiumPartner ? 'musical-notes' : 'lock-closed'}
-                            size={13}
-                            color={isPremiumPartner ? '#9333EA' : theme.textMuted}
-                          />
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontWeight: '800',
-                              color: isPremiumPartner ? '#9333EA' : theme.textMuted,
-                            }}
-                          >
-                            {isPremiumPartner
-                              ? item.events && item.events.length > 0
-                                ? `🎵 Soirée (${item.events[0].title.slice(0, 10)}...)`
-                                : '🎵 Soirée Live'
-                              : '🔒 Soirée (VIP 👑)'}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-
-                    {/* Actions de l'établissement */}
-                    <View style={[styles.actionRow, { borderTopColor: theme.cardBorder }]}>
-                      {item.phone && (
-                        <View style={styles.contactPreview}>
-                          <Ionicons name="call" size={13} color="#10B981" />
-                          <Text style={[styles.contactText, { color: theme.textMuted }]}>{strip216(item.phone)}</Text>
-                        </View>
-                      )}
-
-                      <View style={styles.actionButtonsCol}>
-                        <TouchableOpacity
-                          style={[styles.editBtn, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
-                          onPress={() => openEditModal(item)}
-                        >
-                          <Ionicons name="pencil" size={14} color={theme.textMain} />
-                          <Text style={[styles.editBtnText, { color: theme.textMain }]}>Modifier</Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={[styles.deleteBtn, { backgroundColor: '#FEF2F2' }]}
-                          onPress={() => handleDeleteActivity(item)}
-                        >
-                          <Ionicons name="trash" size={14} color="#DC2626" />
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          )}
-        </ScrollView>
+        <PartnerPerformanceTab
+          stats={stats}
+          activities={activities}
+          theme={theme}
+          isDark={isDark}
+          onRefresh={loadData}
+        />
       )}
 
       {/* MODAL MODULAIRE ÉTABLISSEMENT / LIEU PARTENAIRE */}
@@ -828,6 +755,16 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         targetTier={targetUpgradeTier}
         onClose={() => setUpgradeModalVisible(false)}
       />
+
+      {/* MODAL MENU DÉDIÉ & QR CODE OFFICIEL HAMLA */}
+      <PartnerMenuModal
+        visible={menuModalVisible}
+        activity={menuTargetActivity}
+        theme={theme}
+        isDark={isDark}
+        onClose={() => setMenuModalVisible(false)}
+        onSaveMenu={handleSaveMenu}
+      />
     </View>
   );
 };
@@ -837,61 +774,142 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 14,
+    paddingTop: 14,
+    paddingBottom: 10,
     borderBottomWidth: 1,
+    gap: 10,
   },
-  headerLeft: {
+  headerTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    flex: 1,
+    gap: 10,
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  titleRow: {
+  avatarWrapper: {
+    position: 'relative',
+  },
+  venueAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+  },
+  venueAvatarPlaceholder: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveStatusDot: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  headerTitleCol: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  headerMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+  },
+  statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  statusPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  metaSeparator: {
+    fontSize: 11,
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  refreshIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tierStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  tierStripLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  headerTitle: {
-    fontSize: 17,
+  tierStripName: {
+    fontSize: 11,
     fontWeight: '800',
-    maxWidth: 200,
   },
-  partnerBadge: {
+  tierStripCta: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
+    gap: 2,
   },
-  partnerBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 10,
+  tierStripCtaText: {
+    fontSize: 11,
     fontWeight: '800',
   },
-  headerSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
+  tabBar: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    paddingHorizontal: 8,
   },
-  refreshIconButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  tabItem: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: 'transparent',
+  },
+  tabItemActive: {
+    borderBottomColor: '#4F46E5',
+  },
+  tabText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  tabTextActive: {
+    fontWeight: '800',
   },
   scrollContent: {
     paddingHorizontal: 16,

@@ -353,6 +353,20 @@ export interface PartnerActivityItem {
   openDays?: string[];
   events?: ActivityEvent[];
   promotion?: ActivityPromotion;
+  analytics?: {
+    viewsCount?: number;
+    whatsappClicks?: number;
+    phoneClicks?: number;
+    mapsClicks?: number;
+    viewsCount30d?: number;
+    whatsappClicks30d?: number;
+  };
+  menu?: {
+    pdfUrl?: string;
+    images?: string[];
+    currency?: string;
+    sections?: any[];
+  };
   createdAt?: string;
 }
 
@@ -362,6 +376,26 @@ export interface PartnerActivitiesResponse {
   stats: PartnerStats;
   activities: PartnerActivityItem[];
   partnerTier?: PartnerTier;
+}
+
+export interface ActivityMenuItemInput {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+}
+
+export interface ActivityMenuSectionInput {
+  id: string;
+  title: string;
+  items: ActivityMenuItemInput[];
+}
+
+export interface ActivityMenuData {
+  pdfUrl?: string;
+  images?: string[];
+  currency?: string;
+  sections?: ActivityMenuSectionInput[];
 }
 
 export interface PartnerActivityInput {
@@ -375,6 +409,7 @@ export interface PartnerActivityInput {
   imageUrl?: string;
   menuImageUrl?: string;
   menuUrl?: string;
+  menu?: ActivityMenuData;
   instagram?: string;
   amenities?: string[];
   phone?: string;

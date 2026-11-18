@@ -1,3 +1,5 @@
+import './src/services/ReactotronConfig';
+
 import React, { useEffect, useState, useMemo } from 'react';
 import {
   Alert,
