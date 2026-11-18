@@ -8,6 +8,26 @@ let accessToken: string | null = null;
 let refreshToken: string | null = null;
 let refreshInFlight: Promise<string | null> | null = null;
 
+type SessionExpiredListener = () => void;
+const sessionExpiredListeners: Set<SessionExpiredListener> = new Set();
+
+export function onSessionExpired(listener: SessionExpiredListener): () => void {
+  sessionExpiredListeners.add(listener);
+  return () => {
+    sessionExpiredListeners.delete(listener);
+  };
+}
+
+function notifySessionExpired(): void {
+  sessionExpiredListeners.forEach((listener) => {
+    try {
+      listener();
+    } catch (e) {
+      console.warn('[authService] Erreur listener session expirée:', e);
+    }
+  });
+}
+
 function requireNativeAuthentication(): void {
   if (Platform.OS === 'web') {
     throw new Error('La connexion de l’application est réservée à iOS et Android.');
@@ -138,9 +158,18 @@ export async function fetchWithSessionRefresh(url: string, options: RequestInit 
   };
 
   let response = await send(accessToken);
-  if (response.status === 401 && refreshToken) {
-    const freshToken = await refreshAccessToken();
-    if (freshToken) response = await send(freshToken);
+  if (response.status === 401) {
+    if (refreshToken) {
+      const freshToken = await refreshAccessToken();
+      if (freshToken) {
+        response = await send(freshToken);
+      } else {
+        notifySessionExpired();
+      }
+    } else {
+      // Aucun token ou session invalide : notifier l'application pour déconnexion propre
+      notifySessionExpired();
+    }
   }
   return response;
 }

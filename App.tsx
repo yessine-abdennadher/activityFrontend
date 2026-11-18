@@ -69,7 +69,7 @@ import { AdminDashboardScreen } from './src/screens/admin/AdminDashboardScreen';
 import { PartnerDashboardScreen } from './src/screens/partner/PartnerDashboardScreen';
 import { useActivities, useInfiniteActivities } from './src/hooks/useActivities';
 import type { Activity, AuthUser } from './src/types';
-import { logout as authLogout, restoreSession, fetchCurrentUserProfile } from './src/services/authService';
+import { logout as authLogout, restoreSession, fetchCurrentUserProfile, onSessionExpired } from './src/services/authService';
 import { getUserFavorites, toggleActivityFavorite, localizeActivity } from './src/services/activityService';
 import { trackSessionStart, trackScreenView } from './src/services/telemetryService';
 import {
@@ -473,8 +473,15 @@ export default function App() {
         console.warn('[App] Erreur restauration session persistée:', err);
       });
 
+    // Écoute des expirations de session HTTP (401 non rafraîchissable) pour déconnexion automatique sécurisée
+    const unsubscribeSession = onSessionExpired(() => {
+      console.warn('[App] Session expirée ou invalide côté serveur. Déconnexion automatique...');
+      handleLogout();
+    });
+
     return () => {
       active = false;
+      unsubscribeSession();
     };
   }, []);
 
