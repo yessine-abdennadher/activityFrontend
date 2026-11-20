@@ -92,15 +92,14 @@ export const MapActivityCard: React.FC<MapActivityCardProps> = ({
 
 const styles = StyleSheet.create({
   markerCard: {
-    width: 140,
+    width: 150,
     borderRadius: 16,
     padding: 10,
     alignItems: 'center',
-    marginRight: 12,
   },
   markerImage: {
-    width: 120,
-    height: 75,
+    width: 130,
+    height: 85,
     borderRadius: 12,
     marginBottom: 6,
   },

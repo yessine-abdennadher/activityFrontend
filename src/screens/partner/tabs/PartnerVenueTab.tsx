@@ -24,6 +24,7 @@ interface PartnerVenueTabProps {
   onRefresh: () => Promise<void>;
   onCreatePress: () => void;
   onEditPress: (activity: PartnerActivityItem) => void;
+  onPreviewPress: (activity: PartnerActivityItem) => void;
   onMenuPress: (activity: PartnerActivityItem) => void;
   onDeletePress: (activity: PartnerActivityItem) => void;
   onPromoPress: (activity: PartnerActivityItem) => void;
@@ -43,6 +44,7 @@ export const PartnerVenueTab: React.FC<PartnerVenueTabProps> = ({
   onRefresh,
   onCreatePress,
   onEditPress,
+  onPreviewPress,
   onMenuPress,
   onDeletePress,
   onPromoPress,
@@ -133,11 +135,12 @@ export const PartnerVenueTab: React.FC<PartnerVenueTabProps> = ({
                         {item.name}
                       </Text>
 
-                      {/* Bouton de suppression discret pour éviter les erreurs */}
+                      {/* Bouton de suppression discret et isolé pour éviter toute fausse manipulation */}
                       <TouchableOpacity
                         style={styles.moreOptionsBtn}
                         onPress={() => onDeletePress(item)}
                         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Supprimer l'établissement"
                       >
                         <Ionicons name="trash-outline" size={16} color="#EF4444" />
                       </TouchableOpacity>
@@ -202,7 +205,7 @@ export const PartnerVenueTab: React.FC<PartnerVenueTabProps> = ({
                   </View>
                 </View>
 
-                {/* Zone 3 : 2 Grands Boutons d'Action Clairs et Ergonomiques */}
+                {/* Zone 3 : 3 Boutons d'Action Ergonomiques (Modifier, Menu, Aperçu) */}
                 <View style={[styles.venueActionsRow, { borderTopColor: theme.cardBorder }]}>
                   {/* Bouton 1 : Modifier la Fiche Générale */}
                   <TouchableOpacity
@@ -210,9 +213,9 @@ export const PartnerVenueTab: React.FC<PartnerVenueTabProps> = ({
                     onPress={() => onEditPress(item)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="create-outline" size={16} color="#4F46E5" />
+                    <Ionicons name="create-outline" size={15} color="#4F46E5" />
                     <Text style={[styles.primaryActionBtnText, { color: '#4F46E5' }]}>
-                      Modifier fiche
+                      Modifier
                     </Text>
                   </TouchableOpacity>
 
@@ -222,9 +225,21 @@ export const PartnerVenueTab: React.FC<PartnerVenueTabProps> = ({
                     onPress={() => onMenuPress(item)}
                     activeOpacity={0.7}
                   >
-                    <Ionicons name="restaurant-outline" size={16} color="#7C3AED" />
+                    <Ionicons name="restaurant-outline" size={15} color="#7C3AED" />
                     <Text style={[styles.secondaryActionBtnText, { color: '#7C3AED' }]}>
-                      Menu & Plats
+                      Menu
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Bouton 3 : Voir comme un client */}
+                  <TouchableOpacity
+                    style={[styles.previewActionBtn, { backgroundColor: isDark ? '#0F172A' : '#F8FAFC', borderColor: isDark ? '#334155' : '#E2E8F0' }]}
+                    onPress={() => onPreviewPress(item)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="eye-outline" size={15} color={theme.textMain} />
+                    <Text style={[styles.previewActionBtnText, { color: theme.textMain }]}>
+                      Aperçu
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -313,8 +328,8 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
   moreOptionsBtn: {
-    padding: 4,
-    borderRadius: 6,
+    padding: 6,
+    borderRadius: 8,
   },
   venueLocationText: {
     fontSize: 12,
@@ -389,6 +404,20 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   secondaryActionBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  previewActionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    paddingVertical: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  previewActionBtnText: {
     fontSize: 12,
     fontWeight: '700',
   },

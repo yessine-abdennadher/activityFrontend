@@ -162,6 +162,14 @@ function mapActivity(raw: Record<string, unknown>): Activity {
     whatsapp: (raw.whatsapp as string) || (raw.phone as string) || '+216 98 200 100',
     events: Array.isArray(raw.events) ? (raw.events as any) : undefined,
     promotion: raw.promotion ? (raw.promotion as any) : undefined,
+    menuImageUrl: (raw.menuImageUrl as string) || ((raw.menu as any)?.images && (raw.menu as any).images.length > 0 ? (raw.menu as any).images[0] : undefined),
+    menuUrl: (raw.menuUrl as string) || undefined,
+    menu: raw.menu ? (raw.menu as any) : undefined,
+    photos: Array.isArray(raw.photos) ? (raw.photos as string[]) : undefined,
+    instagram: (raw.instagram as string) || undefined,
+    facebook: (raw.facebook as string) || undefined,
+    mapsUrl: (raw.mapsUrl as string) || undefined,
+    loyaltyProgram: raw.loyaltyProgram ? (raw.loyaltyProgram as any) : undefined,
   };
 }
 
@@ -1289,6 +1297,30 @@ export async function reportActivityPowerStatus(
     message: payload.message,
   };
 }
+
+/**
+ * Enregistre une interaction utilisateur réelle (vue, clic WhatsApp, appel, itinéraire GPS)
+ * de manière non-bloquante pour alimenter les statistiques partenaires.
+ */
+export async function trackActivityInteraction(
+  activityId: string,
+  event: 'view' | 'whatsapp_click' | 'phone_click' | 'maps_click'
+): Promise<void> {
+  if (!activityId) return;
+  try {
+    await apiFetch(
+      `/activities/${encodeURIComponent(activityId)}/track`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ event }),
+      },
+      false
+    );
+  } catch {
+    // Suivi analytique silencieux : ne jamais bloquer l'UX utilisateur
+  }
+}
+
 
 
 

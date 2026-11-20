@@ -1,10 +1,13 @@
-import React from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useMemo, useState } from 'react';
+import { StyleSheet, View, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Activity } from '../types';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useTranslation } from '../hooks/useTranslation';
+import { getLocalizedCategories } from '../constants/categories';
 import { GoogleMapView } from '../components/GoogleMapView';
+import { MapHeader } from '../components/map/MapHeader';
+import { MapCategoryFilterBar } from '../components/map/MapCategoryFilterBar';
 
 interface MapScreenProps {
   activities: Activity[];
@@ -12,40 +15,68 @@ interface MapScreenProps {
   onSelectActivity: (activity: Activity) => void;
 }
 
-export const MapScreen: React.FC<MapScreenProps> = ({ activities, onNavigate, onSelectActivity }) => {
-  const { theme, language } = usePreferences();
+export const MapScreen: React.FC<MapScreenProps> = ({
+  activities,
+  onNavigate,
+  onSelectActivity,
+}) => {
+  const { theme, isDark, language } = usePreferences();
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
   const isRTL = language === 'ar';
+
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+
+  const localizedCategories = useMemo(
+    () => getLocalizedCategories(language),
+    [language]
+  );
+
+  const categories = useMemo(() => {
+    const unique = Array.from(
+      new Set(activities.map((a) => a.category).filter(Boolean))
+    );
+    return ['all', ...unique];
+  }, [activities]);
+
+  const filteredActivities = useMemo(() => {
+    if (selectedCategory === 'all') return activities;
+    return activities.filter((a) => a.category === selectedCategory);
+  }, [activities, selectedCategory]);
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.bg }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.headerBg,
-            flexDirection: isRTL ? 'row-reverse' : 'row',
-          },
-        ]}
+      {/* Header SafeArea modulaire */}
+      <MapHeader
+        title={t('nearbyMap')}
+        count={filteredActivities.length}
+        topInset={insets.top}
+        theme={theme}
+        language={language}
+        isRTL={isRTL}
+        onBack={() => onNavigate('home')}
+      />
+
+      {/* Barre de filtrage par catégorie modulaire */}
+      <MapCategoryFilterBar
+        categories={categories}
+        selectedCategory={selectedCategory}
+        onSelectCategory={setSelectedCategory}
+        localizedCategories={localizedCategories}
+        theme={theme}
+        isDark={isDark}
+        language={language}
+      />
+
+      <ScrollView
+        contentContainerStyle={{
+          paddingBottom: Math.max(insets.bottom, 16) + 16,
+        }}
+        showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          onPress={() => onNavigate('home')}
-          style={styles.headerButton}
-          activeOpacity={0.8}
-        >
-          <Ionicons
-            name={isRTL ? 'arrow-forward' : 'arrow-back'}
-            size={22}
-            color="#FFFFFF"
-          />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{t('nearbyMap')}</Text>
-        <View style={{ width: 40 }} />
-      </View>
-      <ScrollView contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
         <GoogleMapView
-          activities={activities}
-          onSelectActivity={(act) => onSelectActivity(act)}
+          activities={filteredActivities}
+          onSelectActivity={onSelectActivity}
         />
       </ScrollView>
     </View>
@@ -53,14 +84,7 @@ export const MapScreen: React.FC<MapScreenProps> = ({ activities, onNavigate, on
 };
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  header: {
-    height: 64,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  screen: {
+    flex: 1,
   },
-  headerButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
 });

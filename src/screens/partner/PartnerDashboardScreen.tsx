@@ -32,16 +32,21 @@ import type {
 } from '../../types';
 import { PartnerPowerModeSwitch } from '../../components/partner/PartnerPowerModeSwitch';
 import { PartnerProPromoModal } from '../../components/partner/PartnerProPromoModal';
-import { PartnerProEventModal } from '../../components/partner/PartnerProEventModal';
+import { PartnerLoyaltyModal } from '../../components/partner/PartnerLoyaltyModal';
+import { PartnerProEventModal, type EventCategoryKey } from '../../components/partner/PartnerProEventModal';
 import { PartnerUpgradeModal } from '../../components/partner/PartnerUpgradeModal';
 import { PartnerActivityModal, strip216 } from '../../components/partner/PartnerActivityModal';
 import { PartnerMenuModal } from '../../components/partner/PartnerMenuModal';
 import { PartnerOverviewTab } from './tabs/PartnerOverviewTab';
 import { PartnerVenueTab } from './tabs/PartnerVenueTab';
 import { PartnerPerformanceTab } from './tabs/PartnerPerformanceTab';
+import ActivityDetailsScreen from '../ActivityDetailsScreen';
+import { mapPartnerItemToActivity } from '../../utils/partnerPreviewMapper';
+import { calculateDiscountedPrice } from '../../utils/promoHelpers';
+import { updatePartnerLoyaltyProgram } from '../../services/loyaltyService';
 import { fetchCurrentUserProfile } from '../../services/authService';
 import { queryClient } from '../../lib/queryClient';
-import type { PartnerTier } from '../../types';
+import type { PartnerTier, Activity, PromoOfferType, LoyaltyProgramConfig } from '../../types';
 
 interface PartnerDashboardScreenProps {
   currentUser: AuthUser | null;
@@ -80,15 +85,22 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   // Modal Promo Pro & Premium
   const [promoModalVisible, setPromoModalVisible] = useState(false);
   const [promoTarget, setPromoTarget] = useState<PartnerActivityItem | null>(null);
+  const [promoOfferType, setPromoOfferType] = useState<PromoOfferType>('percentage');
   const [promoDiscount, setPromoDiscount] = useState('20');
-  const [promoLabel, setPromoLabel] = useState('Offre Spéciale Menu');
+  const [promoLabel, setPromoLabel] = useState('');
   const [promoType, setPromoType] = useState<'all' | 'item'>('all');
   const [promoTargetItem, setPromoTargetItem] = useState('');
-  const [promoValidUntil, setPromoValidUntil] = useState('Jusqu\'au 31 Octobre');
+  const [promoOriginalPrice, setPromoOriginalPrice] = useState<number | undefined>(undefined);
+  const [promoValidUntil, setPromoValidUntil] = useState('Ce week-end uniquement');
+
+  // Modal Carte de Fidélité (5+1)
+  const [loyaltyModalVisible, setLoyaltyModalVisible] = useState(false);
+  const [loyaltyTarget, setLoyaltyTarget] = useState<PartnerActivityItem | null>(null);
 
   // Modal Événement Pro & Premium
   const [eventModalVisible, setEventModalVisible] = useState(false);
   const [eventTarget, setEventTarget] = useState<PartnerActivityItem | null>(null);
+  const [eventCategory, setEventCategory] = useState<EventCategoryKey>('music');
   const [eventTitle, setEventTitle] = useState('Soirée Musique Live');
   const [eventImage, setEventImage] = useState('');
   const [eventDate, setEventDate] = useState('Ce samedi soir');
@@ -107,6 +119,14 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   const [livePartnerTier, setLivePartnerTier] = useState<PartnerTier>(
     currentUser?.partnerTier || 'standard'
   );
+
+  // Mode Aperçu Visiteur (« Voir comme un client »)
+  const [previewingActivity, setPreviewingActivity] = useState<Activity | null>(null);
+
+  const handlePreviewActivity = (item: PartnerActivityItem) => {
+    const mapped = mapPartnerItemToActivity(item, effectiveTier);
+    setPreviewingActivity(mapped);
+  };
 
   useEffect(() => {
     if (currentUser?.partnerTier) {
@@ -213,11 +233,13 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       return;
     }
     setPromoTarget(item);
+    setPromoOfferType(item.promotion?.offerType || 'percentage');
     setPromoDiscount(String(item.promotion?.discountPercent || '20'));
-    setPromoLabel(item.promotion?.promoLabel || 'Offre Spéciale Menu');
+    setPromoLabel(item.promotion?.promoLabel || '');
     setPromoType((item.promotion as any)?.promoType || 'all');
     setPromoTargetItem((item.promotion as any)?.targetItem || '');
-    setPromoValidUntil(item.promotion?.validUntil || 'Jusqu\'au 31 Octobre');
+    setPromoOriginalPrice(item.promotion?.originalPrice);
+    setPromoValidUntil(item.promotion?.validUntil || 'Ce week-end uniquement');
     setPromoModalVisible(true);
   };
 
@@ -225,12 +247,39 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
     if (!promoTarget) return;
     try {
       const discount = parseInt(promoDiscount, 10) || 0;
+      const calcPromoPrice =
+        promoOriginalPrice && promoOfferType === 'percentage'
+          ? calculateDiscountedPrice(promoOriginalPrice, discount)
+          : undefined;
+
+      const fallbackLabel =
+        promoOfferType === 'bogo'
+          ? promoTargetItem
+            ? `1 ${promoTargetItem} acheté = le 2ème offert`
+            : '1 article acheté = 1 offert'
+          : promoOfferType === 'bundle'
+            ? promoTargetItem
+              ? `Formule Spéciale ${promoTargetItem}`
+              : 'Formule Pack Spécial'
+            : promoOfferType === 'gift'
+              ? promoTargetItem
+                ? `${promoTargetItem} offert avec votre commande`
+                : 'Cadeau offert avec votre addition'
+              : promoType === 'item' && promoTargetItem
+                ? calcPromoPrice && promoOriginalPrice
+                  ? `${promoTargetItem} à ${calcPromoPrice} DT au lieu de ${promoOriginalPrice} DT`
+                  : `-${discount}% sur ${promoTargetItem}`
+                : `-${discount}% sur toute l'addition`;
+
       const updated = await updatePartnerPromotion(promoTarget._id, {
         isPromo: true,
-        promoType,
-        discountPercent: discount,
-        targetItem: promoType === 'item' ? promoTargetItem.trim() : undefined,
-        promoLabel: promoLabel.trim() || (promoType === 'item' && promoTargetItem ? `Promo sur ${promoTargetItem} (-${discount}%)` : `-${discount}% sur toute l'addition`),
+        offerType: promoOfferType,
+        promoType: promoOfferType === 'percentage' ? promoType : 'item',
+        discountPercent: promoOfferType === 'percentage' ? discount : 0,
+        targetItem: promoTargetItem.trim() || undefined,
+        originalPrice: promoOriginalPrice,
+        promoPrice: calcPromoPrice,
+        promoLabel: promoLabel.trim() || fallbackLabel,
         validUntil: promoValidUntil.trim() || undefined,
       });
       setActivities((prev) =>
@@ -238,7 +287,52 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       );
       await invalidateAppQueries();
       setPromoModalVisible(false);
-      Alert.alert('Succès ', 'Votre promotion a été enregistrée avec succès et diffusée aux utilisateurs !');
+      Alert.alert('Succès', 'Votre promotion a été enregistrée avec succès et diffusée aux utilisateurs !');
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message);
+    }
+  };
+
+  const handleOpenLoyalty = (item: PartnerActivityItem) => {
+    setLoyaltyTarget(item);
+    setLoyaltyModalVisible(true);
+  };
+
+  const handleSaveLoyalty = async (activityId: string, config: LoyaltyProgramConfig) => {
+    try {
+      const updatedProgram = await updatePartnerLoyaltyProgram(activityId, config);
+      setActivities((prev) =>
+        prev.map((a) => (a._id === activityId ? { ...a, loyaltyProgram: updatedProgram } : a))
+      );
+      await invalidateAppQueries();
+      setLoyaltyModalVisible(false);
+      Alert.alert(
+        updatedProgram.isActive ? 'Carte Fidélité Activée' : 'Carte Fidélité Désactivée',
+        updatedProgram.isActive
+          ? `Vos clients peuvent désormais cumuler ${updatedProgram.requiredStamps} passages pour débloquer : ${updatedProgram.rewardLabel}`
+          : 'Le programme de fidélité a été mis en pause.'
+      );
+    } catch (err: any) {
+      Alert.alert('Erreur', err.message || 'Impossible d’enregistrer la carte fidélité.');
+    }
+  };
+
+  const handleDisablePromo = async () => {
+    if (!promoTarget) return;
+    try {
+      const updated = await updatePartnerPromotion(promoTarget._id, {
+        isPromo: false,
+        discountPercent: 0,
+        promoLabel: '',
+        validUntil: undefined,
+        targetItem: undefined,
+      });
+      setActivities((prev) =>
+        prev.map((a) => (a._id === promoTarget._id ? { ...a, promotion: updated.promotion } : a))
+      );
+      await invalidateAppQueries();
+      setPromoModalVisible(false);
+      Alert.alert('Promotion désactivée', 'Votre offre a été retirée avec succès de votre fiche.');
     } catch (err: any) {
       Alert.alert('Erreur', err.message);
     }
@@ -251,11 +345,12 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       return;
     }
     setEventTarget(item);
+    setEventCategory('music');
     setEventTitle('Soirée Acoustique & Guitare');
     setEventImage(item.imageUrl || '');
-    setEventDate('Ce samedi soir');
+    setEventDate('Samedi soir');
     setEventTime('21:00');
-    setEventPrice('20');
+    setEventPrice('0');
     setEventDesc('Ambiance live intimiste, réservation recommandée');
     setEventModalVisible(true);
   };
@@ -274,7 +369,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         time: eventTime.trim(),
         price: parseFloat(eventPrice) || 0,
         description: eventDesc.trim(),
-        category: 'music',
+        category: eventCategory,
       });
       setActivities((prev) =>
         prev.map((a) => (a._id === eventTarget._id ? { ...a, events: updated.events } : a))
@@ -307,11 +402,11 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
       prev.map((a) =>
         a._id === activityId
           ? {
-              ...a,
-              menuImageUrl: updated.menuImageUrl,
-              menuUrl: updated.menuUrl,
-              menu: updated.menu || (sections ? { sections } : a.menu),
-            }
+            ...a,
+            menuImageUrl: updated.menuImageUrl,
+            menuUrl: updated.menuUrl,
+            menu: updated.menu || (sections ? { sections } : a.menu),
+          }
           : a
       )
     );
@@ -380,6 +475,19 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
   const mainActivityImg = mainActivity?.imageUrl || mainActivity?.image || null;
   const isVenueOnline = Boolean(mainActivity?.isApproved);
 
+  if (previewingActivity) {
+    return (
+      <ActivityDetailsScreen
+        activity={previewingActivity}
+        isFavorite={false}
+        currentUser={currentUser}
+        isPartnerPreview={true}
+        onBack={() => setPreviewingActivity(null)}
+        onToggleFavorite={() => { }}
+      />
+    );
+  }
+
   return (
     <View style={[styles.container, { backgroundColor: theme.bg }]}>
       {/* Header Professionnel Haute Fidélité */}
@@ -441,15 +549,6 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
               </Text>
             </View>
           </View>
-
-          {/* Bouton Rafraîchir */}
-          <TouchableOpacity
-            style={[styles.refreshIconButton, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
-            onPress={onPullRefresh}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh" size={18} color={theme.primary} />
-          </TouchableOpacity>
         </View>
 
         {/* Bandeau Statut Forfait & Upgrade Direct */}
@@ -460,13 +559,13 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
               backgroundColor: isPremiumPartner
                 ? isDark ? '#3B076440' : '#FAF5FF'
                 : isProPartner
-                ? isDark ? '#43140740' : '#FFF7ED'
-                : isDark ? '#0F172A' : '#F8FAFC',
+                  ? isDark ? '#43140740' : '#FFF7ED'
+                  : isDark ? '#0F172A' : '#F8FAFC',
               borderColor: isPremiumPartner
                 ? '#C084FC'
                 : isProPartner
-                ? '#FDBA74'
-                : theme.cardBorder,
+                  ? '#FDBA74'
+                  : theme.cardBorder,
             },
           ]}
           onPress={() => {
@@ -474,8 +573,8 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
               effectiveTier === 'premium'
                 ? 'premium'
                 : isProPartner
-                ? 'premium'
-                : 'pro'
+                  ? 'premium'
+                  : 'pro'
             );
             setUpgradeModalVisible(true);
           }}
@@ -487,16 +586,16 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                 effectiveTier === 'premium'
                   ? 'ribbon'
                   : effectiveTier === 'pro'
-                  ? 'star'
-                  : 'shield-checkmark'
+                    ? 'star'
+                    : 'shield-checkmark'
               }
               size={14}
               color={
                 effectiveTier === 'premium'
                   ? '#9333EA'
                   : effectiveTier === 'pro'
-                  ? '#EA580C'
-                  : '#64748B'
+                    ? '#EA580C'
+                    : '#64748B'
               }
             />
             <Text
@@ -507,8 +606,8 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
                     effectiveTier === 'premium'
                       ? '#9333EA'
                       : effectiveTier === 'pro'
-                      ? '#EA580C'
-                      : theme.textMain,
+                        ? '#EA580C'
+                        : theme.textMain,
                 },
               ]}
             >
@@ -638,11 +737,15 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
             if (mainActivity) openEditModal(mainActivity);
             else openCreateModal();
           }}
+          onPreviewPress={handlePreviewActivity}
           onPromoPress={() => {
             if (mainActivity) handleOpenPromo(mainActivity);
           }}
           onEventPress={() => {
             if (mainActivity) handleOpenEvent(mainActivity);
+          }}
+          onLoyaltyPress={() => {
+            if (mainActivity) handleOpenLoyalty(mainActivity);
           }}
           onSharePress={() => {
             if (mainActivity) {
@@ -658,8 +761,8 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
               effectiveTier === 'premium'
                 ? 'premium'
                 : isProPartner
-                ? 'premium'
-                : 'pro'
+                  ? 'premium'
+                  : 'pro'
             );
             setUpgradeModalVisible(true);
           }}
@@ -678,6 +781,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
           onRefresh={onPullRefresh}
           onCreatePress={openCreateModal}
           onEditPress={openEditModal}
+          onPreviewPress={handlePreviewActivity}
           onMenuPress={handleOpenMenuModal}
           onDeletePress={handleDeleteActivity}
           onPromoPress={handleOpenPromo}
@@ -688,9 +792,19 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         <PartnerPerformanceTab
           stats={stats}
           activities={activities}
+          effectiveTier={effectiveTier}
+          isProPartner={isProPartner}
+          isPremiumPartner={isPremiumPartner}
+          refreshing={refreshing}
           theme={theme}
           isDark={isDark}
-          onRefresh={loadData}
+          onRefresh={onPullRefresh}
+          onUpgradePress={(target) => {
+            setTargetUpgradeTier(target);
+            setUpgradeModalVisible(true);
+          }}
+          onPromoPress={handleOpenPromo}
+          onEventPress={handleOpenEvent}
         />
       )}
 
@@ -700,36 +814,66 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         editingActivity={editingActivity}
         currentUserCity={currentUser?.city}
         electricityAlertActive={electricityAlertActive}
+        partnerTier={effectiveTier}
         theme={theme}
         isDark={isDark}
         onClose={() => setModalVisible(false)}
         onSave={handleSaveActivity}
+        onRequestUpgrade={(target) => {
+          setModalVisible(false);
+          setTargetUpgradeTier(target);
+          setUpgradeModalVisible(true);
+        }}
       />
 
       {/* MODAL PROMOTION PRO & PREMIUM */}
       <PartnerProPromoModal
         visible={promoModalVisible}
+        activities={activities}
         targetActivity={promoTarget}
+        offerType={promoOfferType}
         discount={promoDiscount}
         label={promoLabel}
         promoType={promoType}
         targetItem={promoTargetItem}
+        originalPrice={promoOriginalPrice}
         validUntil={promoValidUntil}
         theme={theme}
         isDark={isDark}
+        hasActivePromo={Boolean(promoTarget?.promotion?.isPromo)}
+        onSelectActivity={(act) => handleOpenPromo(act)}
+        onOfferTypeChange={setPromoOfferType}
         onDiscountChange={setPromoDiscount}
         onLabelChange={setPromoLabel}
         onPromoTypeChange={setPromoType}
-        onTargetItemChange={setPromoTargetItem}
+        onTargetItemChange={(itemName, itemPrice) => {
+          setPromoTargetItem(itemName);
+          setPromoOriginalPrice(itemPrice);
+        }}
         onValidUntilChange={setPromoValidUntil}
         onClose={() => setPromoModalVisible(false)}
         onSave={handleSavePromo}
+        onDisablePromo={handleDisablePromo}
+      />
+
+      {/* MODAL CARTE DE FIDÉLITÉ DIGITALE (5+1) */}
+      <PartnerLoyaltyModal
+        visible={loyaltyModalVisible}
+        activities={activities}
+        targetActivity={loyaltyTarget}
+        theme={theme}
+        isDark={isDark}
+        onSelectActivity={(act) => setLoyaltyTarget(act)}
+        onClose={() => setLoyaltyModalVisible(false)}
+        onSave={handleSaveLoyalty}
       />
 
       {/* MODAL ÉVÉNEMENT / SOIRÉE PRO */}
       <PartnerProEventModal
         visible={eventModalVisible}
+        activities={activities}
         targetActivity={eventTarget}
+        category={eventCategory}
         title={eventTitle}
         image={eventImage}
         date={eventDate}
@@ -738,6 +882,8 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
         desc={eventDesc}
         theme={theme}
         isDark={isDark}
+        onSelectActivity={(act) => handleOpenEvent(act)}
+        onCategoryChange={setEventCategory}
         onTitleChange={setEventTitle}
         onImageChange={setEventImage}
         onDateChange={setEventDate}
@@ -771,6 +917,7 @@ export const PartnerDashboardScreen: React.FC<PartnerDashboardScreenProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    paddingTop: 25,
     flex: 1,
   },
   header: {

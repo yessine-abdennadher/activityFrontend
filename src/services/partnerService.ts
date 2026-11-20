@@ -152,9 +152,12 @@ export async function updatePartnerPromotion(
   activityId: string,
   promotion: {
     isPromo: boolean;
+    offerType?: 'percentage' | 'bogo' | 'bundle' | 'gift' | 'custom';
     promoType?: 'all' | 'item';
     discountPercent: number;
     targetItem?: string;
+    originalPrice?: number;
+    promoPrice?: number;
     promoLabel: string;
     validUntil?: string;
   }

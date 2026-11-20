@@ -70,8 +70,25 @@ export interface Activity {
   whatsapp?: string;       // Direct WhatsApp booking/info (e.g. "+216 98 123 456")
   events?: ActivityEvent[];
   promotion?: ActivityPromotion;
+  loyaltyProgram?: LoyaltyProgramConfig;
   powerReports?: PowerCommunityReports;
   partnerTier?: PartnerTier;
+  menuImageUrl?: string;
+  menuUrl?: string;
+  menu?: ActivityMenuData;
+  photos?: string[];
+  instagram?: string;
+  facebook?: string;
+  mapsUrl?: string;
+}
+
+export interface LoyaltyProgramConfig {
+  isActive: boolean;
+  requiredStamps: number;
+  rewardType: 'free' | 'discount' | 'gift';
+  rewardDiscountPercent?: number;
+  rewardLabel: string;
+  cashierPin?: string;
 }
 
 export interface PowerCommunityReports {
@@ -94,11 +111,16 @@ export interface ActivityEvent {
   price?: number;
 }
 
+export type PromoOfferType = 'percentage' | 'bogo' | 'bundle' | 'gift' | 'custom';
+
 export interface ActivityPromotion {
   isPromo: boolean;
+  offerType?: PromoOfferType;
   promoType?: 'all' | 'item';
   discountPercent: number;
   targetItem?: string;
+  originalPrice?: number;
+  promoPrice?: number;
   promoLabel: string;
   validUntil?: string;
 }
@@ -334,9 +356,15 @@ export interface PartnerActivityItem {
   description?: string;
   imageUrl?: string;
   image?: string;
+  photos?: string[];
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
   menuImageUrl?: string;
   menuUrl?: string;
   instagram?: string;
+  facebook?: string;
   amenities?: string[];
   phone?: string;
   whatsapp?: string;
@@ -353,6 +381,7 @@ export interface PartnerActivityItem {
   openDays?: string[];
   events?: ActivityEvent[];
   promotion?: ActivityPromotion;
+  loyaltyProgram?: LoyaltyProgramConfig;
   analytics?: {
     viewsCount?: number;
     whatsappClicks?: number;
@@ -360,6 +389,8 @@ export interface PartnerActivityItem {
     mapsClicks?: number;
     viewsCount30d?: number;
     whatsappClicks30d?: number;
+    phoneClicks30d?: number;
+    mapsClicks30d?: number;
   };
   menu?: {
     pdfUrl?: string;
@@ -407,10 +438,16 @@ export interface PartnerActivityInput {
   price: number;
   description?: string;
   imageUrl?: string;
+  photos?: string[];
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
   menuImageUrl?: string;
   menuUrl?: string;
   menu?: ActivityMenuData;
   instagram?: string;
+  facebook?: string;
   amenities?: string[];
   phone?: string;
   whatsapp?: string;

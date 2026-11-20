@@ -59,10 +59,9 @@ export function formatDistance(distanceKm: number): string {
 export function getGoogleMapsDirectionsUrl(
   lat: number,
   lng: number,
-  label?: string
+  _label?: string
 ): string {
-  const encodedLabel = label ? encodeURIComponent(label) : '';
-  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&destination_place_id=${encodedLabel}`;
+  return `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
 }
 
 /**

@@ -1,8 +1,9 @@
 import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { usePreferences } from '../../context/AppPreferencesContext';
 import type { PartnerTier } from '../../types';
+import { getColoredGlowShadow } from '../../utils/partnerTierTheme';
 
 interface PartnerTierStatusCardProps {
   tier?: PartnerTier;
@@ -15,416 +16,151 @@ export const PartnerTierStatusCard: React.FC<PartnerTierStatusCardProps> = ({
   onPressUpgrade,
   onPressInfo,
 }) => {
-  const { isDark, theme } = usePreferences();
-
-  const isPro = tier === 'pro' || tier === 'premium';
+  const isPro = tier === 'pro';
   const isPremium = tier === 'premium';
 
+  const gradientColors: [string, string] = isPremium
+    ? ['#581C87', '#9333EA']
+    : isPro
+    ? ['#9A3412', '#EA580C']
+    : ['#1E1B4B', '#4338CA'];
+
+  const iconName: keyof typeof Ionicons.glyphMap = isPremium
+    ? 'ribbon'
+    : isPro
+    ? 'star'
+    : 'shield-checkmark';
+
+  const subtitle = isPremium
+    ? 'Visibilité maximale, événements & stats avancées'
+    : isPro
+    ? 'Promotions %, galeries 5 photos & stats actives'
+    : 'Fiche en ligne · Débloquez les promos & la fidélité';
+
+  const ctaLabel = isPremium ? 'Privilèges' : isPro ? 'Passer VIP' : 'Passer Pro';
+
+  const handleCtaPress = () => {
+    if (isPremium) {
+      onPressInfo();
+    } else if (isPro) {
+      onPressUpgrade('premium');
+    } else {
+      onPressUpgrade('pro');
+    }
+  };
+
   return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: theme.cardBg,
-          borderColor: isPremium
-            ? '#A855F7'
-            : isPro
-            ? '#F97316'
-            : theme.cardBorder,
-        },
-      ]}
+    <TouchableOpacity
+      activeOpacity={0.92}
+      onPress={onPressInfo}
+      style={getColoredGlowShadow(gradientColors[1], false)}
     >
-      {/* Top row : Plan name & Badge */}
-      <View style={styles.topRow}>
-        <View style={styles.tierInfoCol}>
-          <Text style={[styles.sectionSubtitle, { color: theme.textMuted }]}>
-            Votre statut partenaire
-          </Text>
-          <View style={styles.titleRow}>
-            <Text style={[styles.tierTitle, { color: theme.textMain }]}>
-              {isPremium
-                ? 'Partenaire PREMIUM'
-                : isPro
-                ? 'Partenaire PRO'
-                : 'Partenaire STANDARD'}
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.card}
+      >
+        {/* Reflet lumineux subtil */}
+        <View style={styles.glowOrb} pointerEvents="none" />
+
+        <View style={styles.leftRow}>
+          <View style={styles.iconSquircle}>
+            <Ionicons name={iconName} size={20} color="#FFFFFF" />
+          </View>
+          <View style={styles.textCol}>
+            <View style={styles.titleRow}>
+              <Text style={styles.brandTitle}>HAMLA {tier.toUpperCase()}</Text>
+              <Ionicons name="information-circle-outline" size={14} color="rgba(255,255,255,0.75)" />
+            </View>
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {subtitle}
             </Text>
           </View>
         </View>
 
         <TouchableOpacity
-          style={[
-            styles.badgePill,
-            {
-              backgroundColor: isPremium
-                ? '#F3E8FF'
-                : isPro
-                ? '#FFEDD5'
-                : isDark
-                ? '#334155'
-                : '#F1F5F9',
-              borderColor: isPremium
-                ? '#C084FC'
-                : isPro
-                ? '#FDBA74'
-                : theme.cardBorder,
-            },
-          ]}
-          onPress={onPressInfo}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Détails du niveau"
-        >
-          <Ionicons
-            name={isPremium ? 'ribbon' : isPro ? 'star' : 'business'}
-            size={12}
-            color={isPremium ? '#9333EA' : isPro ? '#EA580C' : theme.textMuted}
-          />
-          <Text
-            style={[
-              styles.badgePillText,
-              {
-                color: isPremium
-                  ? '#9333EA'
-                  : isPro
-                  ? '#EA580C'
-                  : theme.textMuted,
-              },
-            ]}
-          >
-            {tier.toUpperCase()}
-          </Text>
-          <Ionicons name="information-circle-outline" size={13} color={theme.textMuted} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Stepper : Standard -> Pro -> Premium */}
-      <View style={styles.stepperContainer}>
-        {/* Step 1: Standard */}
-        <View style={styles.stepItem}>
-          <View
-            style={[
-              styles.stepCircle,
-              {
-                backgroundColor: '#10B981',
-              },
-            ]}
-          >
-            <Ionicons name="checkmark" size={11} color="#FFFFFF" />
-          </View>
-          <Text style={[styles.stepLabel, { color: theme.textMain }]}>Standard</Text>
-        </View>
-
-        {/* Bar 1 */}
-        <View
-          style={[
-            styles.stepBar,
-            {
-              backgroundColor: isPro ? '#EA580C' : isDark ? '#334155' : '#E2E8F0',
-            },
-          ]}
-        />
-
-        {/* Step 2: Pro */}
-        <View style={styles.stepItem}>
-          <View
-            style={[
-              styles.stepCircle,
-              {
-                backgroundColor: isPro
-                  ? '#EA580C'
-                  : isDark
-                  ? '#334155'
-                  : '#CBD5E1',
-              },
-            ]}
-          >
-            {isPro ? (
-              <Ionicons name="checkmark" size={11} color="#FFFFFF" />
-            ) : (
-              <Ionicons name="lock-closed" size={10} color="#FFFFFF" />
-            )}
-          </View>
-          <Text
-            style={[
-              styles.stepLabel,
-              {
-                color: isPro ? '#EA580C' : theme.textMuted,
-                fontWeight: isPro ? '700' : '500',
-              },
-            ]}
-          >
-            Pro ⭐
-          </Text>
-        </View>
-
-        {/* Bar 2 */}
-        <View
-          style={[
-            styles.stepBar,
-            {
-              backgroundColor: isPremium ? '#9333EA' : isDark ? '#334155' : '#E2E8F0',
-            },
-          ]}
-        />
-
-        {/* Step 3: Premium */}
-        <View style={styles.stepItem}>
-          <View
-            style={[
-              styles.stepCircle,
-              {
-                backgroundColor: isPremium
-                  ? '#9333EA'
-                  : isDark
-                  ? '#334155'
-                  : '#CBD5E1',
-              },
-            ]}
-          >
-            {isPremium ? (
-              <Ionicons name="checkmark" size={11} color="#FFFFFF" />
-            ) : (
-              <Ionicons name="lock-closed" size={10} color="#FFFFFF" />
-            )}
-          </View>
-          <Text
-            style={[
-              styles.stepLabel,
-              {
-                color: isPremium ? '#9333EA' : theme.textMuted,
-                fontWeight: isPremium ? '700' : '500',
-              },
-            ]}
-          >
-            Premium 👑
-          </Text>
-        </View>
-      </View>
-
-      {/* Privileges checklist badges */}
-      <View style={styles.privilegesRow}>
-        {/* Fiche & Contact */}
-        <View
-          style={[
-            styles.privilegeItem,
-            {
-              backgroundColor: isDark ? '#064E3B20' : '#ECFDF5',
-              borderColor: '#10B981',
-            },
-          ]}
-        >
-          <Ionicons name="checkmark-circle" size={14} color="#10B981" />
-          <Text style={[styles.privilegeText, { color: '#047857' }]}>
-            Annuaire & WhatsApp
-          </Text>
-        </View>
-
-        {/* Bons Plans % */}
-        <TouchableOpacity
-          onPress={() => !isPro && onPressUpgrade('pro')}
-          style={[
-            styles.privilegeItem,
-            {
-              backgroundColor: isPro
-                ? isDark
-                  ? '#7C2D1220'
-                  : '#FFF7ED'
-                : isDark
-                ? '#1E293B'
-                : '#F1F5F9',
-              borderColor: isPro ? '#EA580C' : theme.cardBorder,
-            },
-          ]}
-        >
-          <Ionicons
-            name={isPro ? 'checkmark-circle' : 'lock-closed'}
-            size={13}
-            color={isPro ? '#EA580C' : theme.textMuted}
-          />
-          <Text
-            style={[
-              styles.privilegeText,
-              { color: isPro ? '#C2410C' : theme.textMuted },
-            ]}
-          >
-            Promos % {isPro ? 'Actif' : '(Pro)'}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Soirées Live */}
-        <TouchableOpacity
-          onPress={() => !isPremium && onPressUpgrade('premium')}
-          style={[
-            styles.privilegeItem,
-            {
-              backgroundColor: isPremium
-                ? isDark
-                  ? '#581C8720'
-                  : '#FAF5FF'
-                : isDark
-                ? '#1E293B'
-                : '#F1F5F9',
-              borderColor: isPremium ? '#9333EA' : theme.cardBorder,
-            },
-          ]}
-        >
-          <Ionicons
-            name={isPremium ? 'checkmark-circle' : 'lock-closed'}
-            size={13}
-            color={isPremium ? '#9333EA' : theme.textMuted}
-          />
-          <Text
-            style={[
-              styles.privilegeText,
-              { color: isPremium ? '#7E22CE' : theme.textMuted },
-            ]}
-          >
-            Soirées Live {isPremium ? 'Actif' : '(VIP)'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Upgrade CTA banner if not premium */}
-      {!isPremium && (
-        <TouchableOpacity
-          style={[
-            styles.upgradeCtaBtn,
-            {
-              backgroundColor: !isPro ? '#EA580C' : '#9333EA',
-            },
-          ]}
-          onPress={() => onPressUpgrade(!isPro ? 'pro' : 'premium')}
+          style={styles.ctaPill}
+          onPress={handleCtaPress}
           activeOpacity={0.85}
         >
-          <Ionicons
-            name={!isPro ? 'flash' : 'ribbon'}
-            size={16}
-            color="#FFFFFF"
-          />
-          <Text style={styles.upgradeCtaText}>
-            {!isPro
-              ? 'Passer au Forfait PRO (Promotions & Bons Plans) 🚀'
-              : 'Passer au Forfait PREMIUM (Soirées Live & Top 1) 👑'}
-          </Text>
-          <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+          <Text style={styles.ctaPillText}>{ctaLabel}</Text>
+          <Ionicons name="chevron-forward" size={13} color="#FFFFFF" />
         </TouchableOpacity>
-      )}
-    </View>
+      </LinearGradient>
+    </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 20,
-    borderWidth: 1.5,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-    gap: 12,
-  },
-  topRow: {
+    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
+    overflow: 'hidden',
+    position: 'relative',
   },
-  tierInfoCol: {
+  glowOrb: {
+    position: 'absolute',
+    top: -30,
+    right: -20,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  leftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
   },
-  sectionSubtitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 2,
+  iconSquircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textCol: {
+    flex: 1,
+    gap: 2,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-  },
-  tierTitle: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  badgePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
   },
-  badgePillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  stepperContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  stepItem: {
-    alignItems: 'center',
-    gap: 4,
-  },
-  stepCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  stepBar: {
-    flex: 1,
-    height: 3,
-    marginHorizontal: 8,
-    borderRadius: 2,
-    marginBottom: 16,
-  },
-  privilegesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  privilegeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 10,
-    borderWidth: 1,
-  },
-  privilegeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  upgradeCtaBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  upgradeCtaText: {
+  brandTitle: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 13.5,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  subtitle: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  ctaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.22)',
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.28)',
+  },
+  ctaPillText: {
+    color: '#FFFFFF',
+    fontSize: 11.5,
     fontWeight: '800',
-    flexShrink: 1,
   },
 });

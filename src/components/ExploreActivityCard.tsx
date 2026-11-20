@@ -5,6 +5,7 @@ import type { Activity } from '../types';
 import { usePreferences } from '../context/AppPreferencesContext';
 import { useTranslation } from '../hooks/useTranslation';
 import { getActivityLocalizedText } from '../services/activityService';
+import { getPremiumCardShadow } from '../utils/partnerTierTheme';
 
 interface ExploreActivityCardProps {
   activity: Activity;
@@ -19,9 +20,10 @@ export const ExploreActivityCard: React.FC<ExploreActivityCardProps> = ({
   onPress,
   onToggleFavorite,
 }) => {
-  const { theme, language } = usePreferences();
+  const { theme, isDark, language } = usePreferences();
   const { t } = useTranslation();
   const isRTL = language === 'ar';
+  const premiumShadow = getPremiumCardShadow(isDark);
 
   const title = getActivityLocalizedText(activity, 'name', language);
   const locationText = getActivityLocalizedText(activity, 'location', language);
@@ -46,9 +48,9 @@ export const ExploreActivityCard: React.FC<ExploreActivityCardProps> = ({
         styles.cardContainer,
         {
           backgroundColor: theme.cardBg,
-          borderColor: theme.cardBorder,
           flexDirection: isRTL ? 'row-reverse' : 'row',
         },
+        premiumShadow,
       ]}
       onPress={onPress}
       activeOpacity={0.88}
@@ -130,15 +132,9 @@ export const ExploreActivityCard: React.FC<ExploreActivityCardProps> = ({
 const styles = StyleSheet.create({
   cardContainer: {
     borderRadius: 18,
-    borderWidth: 1,
     padding: 12,
     alignItems: 'center',
     gap: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
     position: 'relative',
   },
   imageWrapper: {

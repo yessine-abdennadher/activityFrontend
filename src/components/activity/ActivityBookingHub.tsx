@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { ThemeColors } from '../../theme/theme';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -12,6 +12,8 @@ interface ActivityBookingHubProps {
   activityName?: string;
   latitude?: number;
   longitude?: number;
+  instagram?: string;
+  facebook?: string;
   isFavorite: boolean;
   isDark: boolean;
   theme: ThemeColors;
@@ -28,6 +30,8 @@ export const ActivityBookingHub: React.FC<ActivityBookingHubProps> = ({
   activityName,
   latitude,
   longitude,
+  instagram,
+  facebook,
   isFavorite,
   isDark,
   theme,
@@ -157,6 +161,54 @@ export const ActivityBookingHub: React.FC<ActivityBookingHubProps> = ({
         <Ionicons name="chevron-forward" size={18} color="#FFFFFF" style={{ marginLeft: 'auto' }} />
       </TouchableOpacity>
 
+      {/* Réseaux Sociaux Officiels (Facebook & Instagram cliquables) */}
+      {(Boolean(facebook) || Boolean(instagram)) && (
+        <View style={styles.socialButtonsRow}>
+          {facebook ? (
+            <TouchableOpacity
+              style={[
+                styles.socialBtn,
+                { backgroundColor: isDark ? '#1E293B' : '#EFF6FF', borderColor: '#BFDBFE' },
+              ]}
+              onPress={() => {
+                const fbUrl = facebook.startsWith('http')
+                  ? facebook
+                  : `https://facebook.com/${facebook.replace(/^@/, '')}`;
+                Linking.openURL(fbUrl).catch(() => {});
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="logo-facebook" size={17} color="#1877F2" />
+              <Text style={[styles.socialBtnText, { color: '#1877F2' }]} numberOfLines={1}>
+                Page Facebook
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+
+          {instagram ? (
+            <TouchableOpacity
+              style={[
+                styles.socialBtn,
+                { backgroundColor: isDark ? '#1E293B' : '#FDF2F8', borderColor: '#FBCFE8' },
+              ]}
+              onPress={() => {
+                const cleanInsta = instagram.replace(/^@/, '').split('/')[0];
+                const instaUrl = instagram.startsWith('http')
+                  ? instagram
+                  : `https://instagram.com/${cleanInsta}`;
+                Linking.openURL(instaUrl).catch(() => {});
+              }}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="logo-instagram" size={17} color="#E1306C" />
+              <Text style={[styles.socialBtnText, { color: '#E1306C' }]} numberOfLines={1}>
+                @{instagram.replace(/^@/, '').split('/')[0]}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
+      )}
+
       {/* Actions secondaires : Partager & Favoris */}
       <View style={styles.actionRow}>
         <TouchableOpacity
@@ -284,6 +336,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginTop: 2,
+  },
+  socialButtonsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  socialBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  socialBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   secondaryAction: {
     flex: 1,

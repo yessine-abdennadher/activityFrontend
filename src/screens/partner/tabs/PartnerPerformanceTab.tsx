@@ -1,113 +1,241 @@
-import React from 'react';
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import type { ThemeColors } from '../../../theme/theme';
-import type { PartnerStats, PartnerActivityItem } from '../../../types';
+import { ThemeColors } from '../../../theme/theme';
+import {
+  PartnerActivityItem,
+  PartnerStats,
+  PartnerTier,
+} from '../../../types';
+import {
+  getPartnerTierTheme,
+  getPremiumCardShadow,
+} from '../../../utils/partnerTierTheme';
+import {
+  buildDynamicOptimizationTip,
+  computePerformanceMetrics,
+} from '../../../components/partner/performance/performanceMetrics';
+import { PerformanceHeroCard } from '../../../components/partner/performance/PerformanceHeroCard';
+import { PerformanceKpiGrid } from '../../../components/partner/performance/PerformanceKpiGrid';
+import { PerformanceProSection } from '../../../components/partner/performance/PerformanceProSection';
+import { PerformancePremiumSection } from '../../../components/partner/performance/PerformancePremiumSection';
 
 interface PartnerPerformanceTabProps {
   stats: PartnerStats;
   activities: PartnerActivityItem[];
+  effectiveTier?: PartnerTier;
+  isProPartner?: boolean;
+  isPremiumPartner?: boolean;
+  refreshing?: boolean;
   theme: ThemeColors;
   isDark: boolean;
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
+  onUpgradePress?: (target: 'pro' | 'premium') => void;
+  onPromoPress?: (activity: PartnerActivityItem) => void;
+  onEventPress?: (activity: PartnerActivityItem) => void;
 }
 
 export const PartnerPerformanceTab: React.FC<PartnerPerformanceTabProps> = ({
   stats,
   activities,
+  effectiveTier: propEffectiveTier,
+  isProPartner = false,
+  isPremiumPartner = false,
+  refreshing = false,
   theme,
   isDark,
   onRefresh,
+  onUpgradePress,
+  onPromoPress,
+  onEventPress,
 }) => {
-  // Agrégation des statistiques réelles sur 30 jours
-  const totalViews30d = activities.reduce((acc, a) => acc + (a.analytics?.viewsCount30d || a.analytics?.viewsCount || 0), 0);
-  const totalWhatsapp30d = activities.reduce((acc, a) => acc + (a.analytics?.whatsappClicks30d || a.analytics?.whatsappClicks || 0), 0);
-  const totalPhone30d = activities.reduce((acc, a) => acc + (a.analytics?.phoneClicks || 0), 0);
+  const [period, setPeriod] = useState<'30d' | 'all'>('30d');
+
+  const isPremium = propEffectiveTier === 'premium' || isPremiumPartner;
+  const isPro = isPremium || propEffectiveTier === 'pro' || isProPartner;
+  const effectiveTier: PartnerTier = isPremium ? 'premium' : isPro ? 'pro' : 'standard';
+
+  const activePeriod: '30d' | 'all' = !isPro && period === 'all' ? '30d' : period;
+  const mainActivity = activities[0] ?? null;
+
+  const tierTheme = getPartnerTierTheme(effectiveTier, isDark);
+  const premiumShadow = getPremiumCardShadow(isDark);
+  const subtleBorder = isDark ? '#1E293B' : '#E2E8F0';
+
+  const metrics = useMemo(
+    () => computePerformanceMetrics(stats, activities, activePeriod),
+    [stats, activities, activePeriod],
+  );
+
+  const dynamicTip = useMemo(
+    () => buildDynamicOptimizationTip({ metrics, isPro, isPremium }),
+    [metrics, isPro, isPremium],
+  );
 
   return (
-    <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-      {/* 1. Titre et fenêtre d'analyse */}
+    <ScrollView
+      contentContainerStyle={styles.container}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          colors={[theme.primary]}
+          tintColor={theme.primary}
+        />
+      }
+    >
+      {/* En-tête */}
       <View style={styles.headerBox}>
-        <View>
-          <Text style={[styles.mainTitle, { color: theme.textMain }]}>Vos Résultats</Text>
-          <Text style={[styles.subTitle, { color: theme.textMuted }]}>
-            Fenêtre glissante des 30 derniers jours
-          </Text>
-        </View>
-        <TouchableOpacity
-          style={[styles.refreshPill, { backgroundColor: isDark ? '#1E293B' : '#F1F5F9' }]}
-          onPress={onRefresh}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="refresh" size={14} color={theme.primary} />
-          <Text style={[styles.refreshPillText, { color: theme.primary }]}>Actualiser</Text>
-        </TouchableOpacity>
+        <Text style={[styles.mainTitle, { color: theme.textMain }]}>
+          Performances
+        </Text>
       </View>
 
-      {/* 2. Cartes KPIs Principales */}
-      <View style={styles.kpiGrid}>
-        {/* Vues sur 30j */}
-        <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-          <View style={[styles.kpiIconBox, { backgroundColor: '#EEF2FF' }]}>
-            <Ionicons name="eye-outline" size={20} color="#4F46E5" />
-          </View>
-          <Text style={[styles.kpiNumber, { color: theme.textMain }]}>{totalViews30d}</Text>
-          <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>Vues de votre fiche</Text>
-          <Text style={[styles.kpiBadge, { color: '#10B981' }]}>Visiteurs intéressés</Text>
-        </View>
-
-        {/* WhatsApp sur 30j */}
-        <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-          <View style={[styles.kpiIconBox, { backgroundColor: '#ECFDF5' }]}>
-            <Ionicons name="logo-whatsapp" size={20} color="#10B981" />
-          </View>
-          <Text style={[styles.kpiNumber, { color: '#10B981' }]}>{totalWhatsapp30d}</Text>
-          <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>Contacts WhatsApp</Text>
-          <Text style={[styles.kpiBadge, { color: '#10B981' }]}>Réservations directes</Text>
-        </View>
-
-        {/* Appels tél */}
-        <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-          <View style={[styles.kpiIconBox, { backgroundColor: '#EFF6FF' }]}>
-            <Ionicons name="call-outline" size={20} color="#2563EB" />
-          </View>
-          <Text style={[styles.kpiNumber, { color: theme.textMain }]}>{totalPhone30d}</Text>
-          <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>Appels téléphoniques</Text>
-          <Text style={[styles.kpiBadge, { color: theme.textMuted }]}>Prises de contact</Text>
-        </View>
-
-        {/* Avis & Note moyenne */}
-        <View style={[styles.kpiCard, { backgroundColor: theme.cardBg, borderColor: theme.cardBorder }]}>
-          <View style={[styles.kpiIconBox, { backgroundColor: '#FEF3C7' }]}>
-            <Ionicons name="star" size={20} color="#D97706" />
-          </View>
-          <Text style={[styles.kpiNumber, { color: '#D97706' }]}>
-            {stats.averageRating > 0 ? stats.averageRating.toFixed(1) : '5.0'}
-          </Text>
-          <Text style={[styles.kpiLabel, { color: theme.textMuted }]}>Note moyenne</Text>
-          <Text style={[styles.kpiBadge, { color: theme.textMuted }]}>
-            {stats.totalReviews} avis clients
-          </Text>
-        </View>
-      </View>
-
-      {/* 3. Conseil d'optimisation */}
+      {/* Sélecteur de période */}
       <View
         style={[
-          styles.tipCard,
+          styles.periodSwitch,
           {
-            backgroundColor: isDark ? '#1E1B4B40' : '#F5F3FF',
-            borderColor: isDark ? '#4338CA' : '#DDD6FE',
+            backgroundColor: isDark ? '#0F172A' : '#F1F5F9',
+            borderColor: subtleBorder,
           },
         ]}
       >
-        <Ionicons name="bulb-outline" size={22} color="#7C3AED" />
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.tipTitle, { color: isDark ? '#FFFFFF' : '#4C1D95' }]}>
-            Comment recevoir plus de réservations ?
+        <TouchableOpacity
+          style={[
+            styles.periodTab,
+            activePeriod === '30d' && [
+              styles.periodTabActive,
+              { backgroundColor: theme.cardBg },
+            ],
+          ]}
+          onPress={() => setPeriod('30d')}
+          activeOpacity={0.8}
+        >
+          <Text
+            style={[
+              styles.periodTabText,
+              {
+                color: activePeriod === '30d' ? theme.textMain : theme.textMuted,
+                fontWeight: activePeriod === '30d' ? '800' : '600',
+              },
+            ]}
+          >
+            30 derniers jours
           </Text>
-          <Text style={[styles.tipBody, { color: isDark ? '#C7D2FE' : '#5B21B6' }]}>
-            Les établissements qui publient une réduction de 15% à 20% sur un plat vedette ou le menu du jour voient leurs clics WhatsApp doubler en moins de 48h.
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.periodTab,
+            activePeriod === 'all' && [
+              styles.periodTabActive,
+              { backgroundColor: theme.cardBg },
+            ],
+          ]}
+          onPress={() => {
+            if (!isPro) {
+              onUpgradePress?.('pro');
+            } else {
+              setPeriod('all');
+            }
+          }}
+          activeOpacity={0.8}
+        >
+          {!isPro && <Ionicons name="lock-closed" size={11} color="#EA580C" />}
+          <Text
+            style={[
+              styles.periodTabText,
+              {
+                color: activePeriod === 'all' ? theme.textMain : theme.textMuted,
+                fontWeight: activePeriod === 'all' ? '800' : '600',
+              },
+            ]}
+          >
+            Cumul global {!isPro ? '(Pro)' : ''}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Carte Héro Résumé */}
+      <PerformanceHeroCard
+        effectiveTier={effectiveTier}
+        viewsCount={metrics.viewsCount}
+        directContacts={metrics.directContacts}
+        mapsCount={metrics.mapsCount}
+        conversionRate={metrics.conversionRate}
+        isPro={isPro}
+        isPremium={isPremium}
+        isDark={isDark}
+      />
+
+      {/* Grille KPI 2x2 */}
+      <PerformanceKpiGrid
+        whatsappCount={metrics.whatsappCount}
+        phoneCount={metrics.phoneCount}
+        hasReviews={metrics.hasReviews}
+        formattedRating={metrics.formattedRating}
+        totalReviews={stats.totalReviews}
+        activeLoyaltyCount={metrics.activeLoyaltyCount}
+        effectiveTier={effectiveTier}
+        theme={theme}
+        isDark={isDark}
+      />
+
+      {/* Section PRO : Conversion & Promotions */}
+      <PerformanceProSection
+        isPro={isPro}
+        conversionRate={metrics.conversionRate}
+        directContacts={metrics.directContacts}
+        viewsCount={metrics.viewsCount}
+        activePromoActivity={metrics.activePromoActivity}
+        mainActivity={mainActivity}
+        theme={theme}
+        isDark={isDark}
+        onPromoPress={onPromoPress}
+        onUpgradePress={onUpgradePress}
+      />
+
+      {/* Section PREMIUM : Visibilité & Événements VIP */}
+      <PerformancePremiumSection
+        isPremium={isPremium}
+        totalEventsCount={metrics.totalEventsCount}
+        hasFeaturedVenue={metrics.hasFeaturedVenue}
+        mainActivity={mainActivity}
+        theme={theme}
+        isDark={isDark}
+        onEventPress={onEventPress}
+        onUpgradePress={onUpgradePress}
+      />
+
+      {/* Conseil d'Optimisation Hamla */}
+      <View
+        style={[
+          styles.tipBox,
+          {
+            backgroundColor: isDark ? '#0F172A' : '#FFFFFF',
+            borderColor: tierTheme.border,
+          },
+          premiumShadow,
+        ]}
+      >
+        <View style={[styles.tipIconWrap, { backgroundColor: tierTheme.softBg }]}>
+          <Ionicons name="bulb" size={18} color={tierTheme.accent} />
+        </View>
+        <View style={styles.tipContent}>
+          <Text style={[styles.tipTitle, { color: theme.textMain }]}>
+            {dynamicTip.title}
+          </Text>
+          <Text style={[styles.tipBody, { color: theme.textMuted }]}>
+            {dynamicTip.body}
           </Text>
         </View>
       </View>
@@ -117,84 +245,84 @@ export const PartnerPerformanceTab: React.FC<PartnerPerformanceTabProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 14,
     paddingBottom: 40,
+    gap: 12,
   },
   headerBox: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    justifyContent: 'space-between',
   },
   mainTitle: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '900',
   },
-  subTitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  refreshPill: {
+  refreshBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 999,
+    borderWidth: 1,
   },
-  refreshPillText: {
+  refreshText: {
     fontSize: 12,
     fontWeight: '700',
   },
-  kpiGrid: {
+  periodSwitch: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 20,
-  },
-  kpiCard: {
-    width: '48%',
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
-    padding: 14,
+    padding: 4,
+    gap: 4,
   },
-  kpiIconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+  periodTab: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 10,
   },
-  kpiNumber: {
-    fontSize: 22,
-    fontWeight: '800',
-    marginBottom: 2,
+  periodTabActive: {
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
   },
-  kpiLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 4,
+  periodTabText: {
+    fontSize: 12.5,
   },
-  kpiBadge: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  tipCard: {
+  tipBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    padding: 16,
-    borderRadius: 16,
+    borderRadius: 18,
     borderWidth: 1,
+    padding: 14,
+  },
+  tipIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tipContent: {
+    flex: 1,
+    gap: 3,
   },
   tipTitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '800',
-    marginBottom: 4,
   },
   tipBody: {
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 17.5,
+    fontWeight: '500',
   },
 });
